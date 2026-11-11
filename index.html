@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f5f4ef">
+    <meta name="description" content="Finansını ve haftalık planını tek bir kişisel panelden yönet.">
+    <title>Kişisel Alan</title>
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" href="./icon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a class="brand" href="./" aria-label="Kişisel Alan ana sayfa">
+          <span class="brand-mark" aria-hidden="true">y</span>
+          <span>Kişisel Alan</span>
+        </a>
+        <p class="sidebar-label">ÇALIŞMA ALANIN</p>
+        <nav class="primary-nav" aria-label="Ana menü">
+          <button class="nav-link is-active" type="button" data-view="overview">
+            <span class="nav-icon" aria-hidden="true">⌂</span> Genel bakış
+          </button>
+          <button class="nav-link" type="button" data-view="finance">
+            <span class="nav-icon" aria-hidden="true">₺</span> Finans
+          </button>
+          <button class="nav-link" type="button" data-view="weekly">
+            <span class="nav-icon" aria-hidden="true">▦</span> Haftalık plan
+          </button>
+        </nav>
+        <div class="sidebar-bottom">
+          <span class="privacy-dot" aria-hidden="true"></span>
+          <span>Verilerin bu tarayıcıda</span>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">KİŞİSEL KONTROL PANELİN</p>
+            <h1 id="page-title">Genel bakış</h1>
+            <p class="page-subtitle" id="page-subtitle">Finansını ve haftanı tek bir yerden takip et.</p>
+          </div>
+          <span class="device-badge"><span aria-hidden="true">●</span> Bu cihazda kayıtlı</span>
+        </header>
+
+        <div class="notice" id="app-notice" role="status" aria-live="polite" hidden></div>
+
+        <section class="view" id="overview-view" aria-labelledby="overview-heading">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">AYLIK DURUM</p>
+              <h2 id="overview-heading">Paran nereye gidiyor?</h2>
+            </div>
+            <button class="text-button" type="button" data-go="finance">Finansını düzenle <span aria-hidden="true">→</span></button>
+          </div>
+          <div class="summary-grid">
+            <article class="summary-card summary-card--accent">
+              <span class="summary-label">Aylık gelir</span>
+              <strong class="summary-value" id="summary-income">—</strong>
+              <span class="summary-caption">Girdiğin toplam gelir</span>
+            </article>
+            <article class="summary-card">
+              <span class="summary-label">Sabit giderler</span>
+              <strong class="summary-value" id="summary-fixed">—</strong>
+              <span class="summary-caption">Kira, faturalar ve diğerleri</span>
+            </article>
+            <article class="summary-card">
+              <span class="summary-label">Değişken harcamalar</span>
+              <strong class="summary-value" id="summary-spent">—</strong>
+              <span class="summary-caption">Bu ay kaydettiğin harcamalar</span>
+            </article>
+            <article class="summary-card summary-card--dark">
+              <span class="summary-label">Kalan kullanılabilir</span>
+              <strong class="summary-value" id="summary-available">—</strong>
+              <span class="summary-caption">Gelir − sabit giderler − harcamalar</span>
+            </article>
+          </div>
+
+          <div class="overview-grid">
+            <article class="panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">BÜTÇE DAĞILIMI</p>
+                  <h2>Aylık bütçe planın</h2>
+                </div>
+                <button class="text-button" type="button" data-go="finance">Tümünü gör <span aria-hidden="true">→</span></button>
+              </div>
+              <p class="muted-copy">Kategorilere ayırdığın tutarlar ve harcamaların.</p>
+              <div class="compact-budgets" id="overview-budgets"></div>
+            </article>
+            <article class="panel weekly-preview">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">HAFTALIK PLAN</p>
+                  <h2>Haftanı düzenle</h2>
+                </div>
+                <span class="round-icon" aria-hidden="true">↗</span>
+              </div>
+              <p class="muted-copy">06:00–24:00 arasındaki saatlerini boş, meşgul veya planlanmamış olarak işaretle.</p>
+              <div class="week-days" aria-label="Haftanın günleri">
+                <span>Pzt</span><span>Sal</span><span>Çar</span><span>Per</span><span>Cum</span><span>Cmt</span><span>Paz</span>
+              </div>
+              <button class="button button-secondary button-full" type="button" data-go="weekly">Haftalık plana git <span aria-hidden="true">→</span></button>
+            </article>
+          </div>
+          <p class="privacy-note"><span aria-hidden="true">◉</span> Şimdilik tüm bilgiler yalnızca bu tarayıcıda tutulur. Başka cihazlarla eşitleme henüz etkin değil.</p>
+        </section>
+
+        <section class="view" id="finance-view" aria-labelledby="finance-heading" hidden>
+          <div class="section-heading finance-intro">
+            <div>
+              <p class="eyebrow">GELİRİNİ PLANLA</p>
+              <h2 id="finance-heading">Bütçen sana nasıl çalışsın?</h2>
+              <p class="muted-copy">Gelirini ve sabit giderlerini gir. Kalan tutarı kategorilere istediğin gibi dağıt.</p>
+            </div>
+          </div>
+
+          <div class="finance-top-grid">
+            <section class="panel" aria-labelledby="income-heading">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">1. ADIM</p>
+                  <h2 id="income-heading">Aylık gelir</h2>
+                </div>
+                <label class="sr-only" for="currency-select">Para birimi</label>
+                <select id="currency-select" class="currency-select" aria-label="Para birimi">
+                  <option value="TRY">TRY ₺</option>
+                  <option value="EUR">EUR €</option>
+                  <option value="USD">USD $</option>
+                  <option value="GBP">GBP £</option>
+                </select>
+              </div>
+              <form id="income-form" class="income-form">
+                <label class="field-label" for="income-input">Aylık toplam gelir</label>
+                <div class="money-input">
+                  <input id="income-input" name="income" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0" required>
+                  <span id="income-currency">₺</span>
+                </div>
+                <button class="button button-primary" type="submit">Geliri kaydet</button>
+              </form>
+            </section>
+
+            <section class="panel" aria-labelledby="fixed-heading">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">2. ADIM</p>
+                  <h2 id="fixed-heading">Sabit giderler</h2>
+                </div>
+                <span class="panel-total" id="fixed-total">—</span>
+              </div>
+              <p class="muted-copy">Kira, faturalar, abonelikler gibi her ay tekrarlayan giderleri ekle.</p>
+              <div class="fixed-expense-list" id="fixed-expense-list"></div>
+              <form class="add-row-form" id="fixed-expense-form">
+                <label class="sr-only" for="fixed-title">Sabit gider adı</label>
+                <input id="fixed-title" name="title" type="text" maxlength="50" placeholder="Örn. Kira" required>
+                <label class="sr-only" for="fixed-amount">Sabit gider tutarı</label>
+                <input id="fixed-amount" name="amount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Tutar" required>
+                <button class="button button-secondary add-button" type="submit" aria-label="Sabit gider ekle">+</button>
+              </form>
+            </section>
+          </div>
+
+          <section class="panel budget-panel" aria-labelledby="budget-heading">
+            <div class="panel-heading budget-heading">
+              <div>
+                <p class="eyebrow">3. ADIM</p>
+                <h2 id="budget-heading">Bütçe kategorileri</h2>
+              </div>
+              <div class="available-box">
+                <span>Dağıtılabilir tutar</span>
+                <strong id="budget-available">—</strong>
+              </div>
+            </div>
+            <p class="muted-copy">2. adımdaki gibi kategori adını ve ayıracağın tutarı girip kendin ekle.</p>
+            <div class="budget-list" id="budget-list"></div>
+            <form class="add-row-form budget-add-form" id="budget-category-form">
+              <label class="sr-only" for="budget-category-title">Bütçe kategori adı</label>
+              <input id="budget-category-title" name="title" type="text" maxlength="50" placeholder="Örn. Market & yemek" required>
+              <label class="sr-only" for="budget-category-amount">Aylık bütçe tutarı</label>
+              <input id="budget-category-amount" name="amount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Tutar" required>
+              <button class="button button-secondary add-button" type="submit" aria-label="Bütçe kategorisi ekle">+</button>
+            </form>
+            <div class="budget-total-row">
+              <span>Kategorilere ayrılan <strong id="budget-total-allocated">—</strong></span>
+              <span>Dağıtılmamış <strong id="budget-unallocated">—</strong></span>
+            </div>
+            <p class="budget-warning" id="budget-warning" role="status" hidden></p>
+          </section>
+
+          <section class="panel transactions-panel" aria-labelledby="transactions-heading">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">HARCAMALARINI TAKİP ET</p>
+                <h2 id="transactions-heading">Yeni harcama ekle</h2>
+              </div>
+              <span class="panel-total" id="month-spent-total">—</span>
+            </div>
+            <p class="muted-copy expense-category-hint" id="expense-category-empty">Harcama girmek için önce yukarıdan kendi kategorini ekle.</p>
+            <form class="transaction-form" id="expense-form">
+              <label>
+                <span class="field-label">Kategori</span>
+                <select id="expense-category" name="category"></select>
+              </label>
+              <label>
+                <span class="field-label">Tutar</span>
+                <input name="amount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0" required>
+              </label>
+              <label class="transaction-note-field">
+                <span class="field-label">Not <span class="optional">(isteğe bağlı)</span></span>
+                <input name="note" type="text" maxlength="80" placeholder="Örn. Haftalık market">
+              </label>
+              <button class="button button-primary" type="submit">Harcamayı ekle</button>
+            </form>
+            <div class="transaction-history">
+              <h3>Bu ay eklenenler</h3>
+              <p class="empty-state" id="expenses-empty">Henüz harcama eklemedin.</p>
+              <ul class="expense-list" id="expense-list"></ul>
+            </div>
+          </section>
+        </section>
+
+        <section class="view" id="weekly-view" aria-labelledby="weekly-heading" hidden>
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">HAFTALIK DÜZENİN</p>
+              <h2 id="weekly-heading">Haftanı planla</h2>
+              <p class="muted-copy">Bir hücreye dokunarak durumunu değiştir: planlanmadı → boş → meşgul.</p>
+            </div>
+            <div class="schedule-legend" aria-label="Plan durumu açıklaması">
+              <span><i class="legend-dot legend-dot--unset"></i> Planlanmadı</span>
+              <span><i class="legend-dot legend-dot--free"></i> Boş</span>
+              <span><i class="legend-dot legend-dot--busy"></i> Meşgul</span>
+            </div>
+          </div>
+          <section class="panel schedule-panel" aria-label="Haftalık saat planı">
+            <p class="schedule-hint">Her hücre bir saati gösterir. Değişiklikler otomatik kaydedilir.</p>
+            <div class="schedule-scroll" tabindex="0" aria-label="Yatay kaydırılabilir haftalık plan">
+              <table class="schedule-table" id="schedule-table">
+                <caption class="sr-only">Pazartesiden pazara haftalık saat planı, 06:00–24:00</caption>
+              </table>
+            </div>
+          </section>
+        </section>
+
+        <footer class="app-footer">Kişisel Alan <span>·</span> Sade, sana ait bir başlangıç.</footer>
+      </main>
+    </div>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
