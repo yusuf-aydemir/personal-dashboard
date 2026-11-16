@@ -28,6 +28,9 @@
           <button class="nav-link" type="button" data-view="weekly">
             <span class="nav-icon" aria-hidden="true">▦</span> Haftalık plan
           </button>
+          <button class="nav-link" type="button" data-view="jobs">
+            <span class="nav-icon" aria-hidden="true">▤</span> İş ilanları
+          </button>
         </nav>
         <div class="sidebar-bottom">
           <span class="privacy-dot" aria-hidden="true"></span>
@@ -241,6 +244,37 @@
                 <caption class="sr-only">Pazartesiden pazara haftalık saat planı, 06:00–24:00</caption>
               </table>
             </div>
+          </section>
+        </section>
+
+        <section class="view" id="jobs-view" aria-labelledby="job-list-heading" hidden>
+          <section class="panel job-list-panel" aria-labelledby="job-list-heading">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">TAKİP LİSTEN</p>
+                <h2 id="job-list-heading">Kaydettiğin ilanlar</h2>
+              </div>
+              <span class="panel-total" id="job-count">0 ilan</span>
+            </div>
+            <div class="job-filters">
+              <label>
+                <span class="sr-only">İlanlarda ara</span>
+                <input id="job-search" type="search" placeholder="Pozisyon, şirket veya notlarda ara">
+              </label>
+              <label>
+                <span class="sr-only">Başvuru durumuna göre filtrele</span>
+                <select id="job-status-filter">
+                  <option value="all">Tüm durumlar</option>
+                  <option value="saved">Kaydedildi</option>
+                  <option value="applied">Başvuruldu</option>
+                  <option value="interview">Görüşme</option>
+                  <option value="offer">Teklif</option>
+                  <option value="rejected">Olumsuz</option>
+                </select>
+              </label>
+            </div>
+            <p class="empty-state" id="jobs-empty">Henüz kaydedilmiş ilan yok.</p>
+            <div class="job-list" id="job-list"></div>
           </section>
         </section>
 

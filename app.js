@@ -9,10 +9,18 @@ const LEGACY_CATEGORY_NAMES = {
   savings: "Birikim",
 };
 const CURRENCY_SYMBOLS = { TRY: "₺", EUR: "€", USD: "$", GBP: "£" };
+const JOB_STATUSES = {
+  saved: "Kaydedildi",
+  applied: "Başvuruldu",
+  interview: "Görüşme",
+  offer: "Teklif",
+  rejected: "Olumsuz",
+};
 const VIEW_COPY = {
   overview: ["Genel bakış", "Finansını ve haftanı tek bir yerden takip et."],
   finance: ["Finans", "Gelirini, sabit giderlerini ve aylık bütçeni düzenle."],
   weekly: ["Haftalık plan", "Boş ve meşgul zamanlarını tek bir tabloda gör."],
+  jobs: ["İş ilanları", "İlanlarını ve başvuru sürecini takip et."],
 };
 const makeEmptySchedule = () => DAYS.map(() => Array(18).fill(null));
 
@@ -23,6 +31,7 @@ function createDefaultState() {
     fixedExpenses: [],
     expenses: [],
     categories: [],
+    jobs: [],
     schedule: makeEmptySchedule(),
   };
 }
@@ -65,6 +74,17 @@ function isValidState(value) {
         && category.name.trim().length > 0
         && Number.isFinite(category.amount)
         && category.amount >= 0)))
+    && (value.jobs === undefined || (Array.isArray(value.jobs)
+      && value.jobs.every((job) => job
+        && typeof job.id === "string"
+        && typeof job.title === "string"
+        && typeof job.company === "string"
+        && typeof job.url === "string"
+        && typeof job.location === "string"
+        && typeof job.notes === "string"
+        && Object.hasOwn(JOB_STATUSES, job.status)
+        && Number.isFinite(job.createdAt)
+        && Number.isFinite(job.updatedAt))))
     && Array.isArray(value.schedule)
     && value.schedule.length === DAYS.length
     && value.schedule.every((day) => Array.isArray(day)
@@ -91,6 +111,7 @@ function loadState() {
       ...parsed,
       currency: CURRENCY_SYMBOLS[parsed.currency] ? parsed.currency : defaults.currency,
       categories: parsed.categories ?? [],
+      jobs: parsed.jobs ?? [],
       expenses: parsed.expenses.map((expense) => ({
         ...expense,
         categoryName: expense.categoryName || LEGACY_CATEGORY_NAMES[expense.category] || "Kaldırılmış kategori",
@@ -455,11 +476,70 @@ function renderSchedule() {
   table.replaceChildren(head, body);
 }
 
+function renderJobs() {
+  const list = document.querySelector("#job-list");
+  const search = document.querySelector("#job-search").value.trim().toLocaleLowerCase("tr-TR");
+  const statusFilter = document.querySelector("#job-status-filter").value;
+  const matchingJobs = state.jobs
+    .filter((job) => statusFilter === "all" || job.status === statusFilter)
+    .filter((job) => !search || [job.title, job.company, job.location, job.notes]
+      .some((value) => value.toLocaleLowerCase("tr-TR").includes(search)))
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+
+  list.replaceChildren();
+  document.querySelector("#job-count").textContent = `${state.jobs.length} ilan`;
+  const empty = document.querySelector("#jobs-empty");
+  empty.hidden = matchingJobs.length > 0;
+  if (state.jobs.length > 0 && matchingJobs.length === 0) {
+    empty.textContent = "Aramana veya seçtiğin duruma uygun ilan bulunamadı.";
+  } else {
+    empty.textContent = "Henüz kaydedilmiş ilan yok.";
+  }
+
+  matchingJobs.forEach((job) => {
+    const card = makeElement("article", "job-card");
+    const heading = makeElement("div", "job-card-heading");
+    const identity = makeElement("div", "job-card-identity");
+    identity.append(makeElement("h3", "job-card-title", job.title));
+    identity.append(makeElement("p", "job-card-company", job.company));
+    heading.append(identity, makeElement("span", `job-status job-status--${job.status}`, JOB_STATUSES[job.status]));
+    card.append(heading);
+
+    const details = makeElement("div", "job-card-details");
+    if (job.location) details.append(makeElement("span", "", job.location));
+    details.append(makeElement("span", "", `Güncellendi ${new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium" }).format(job.updatedAt)}`));
+    card.append(details);
+
+    if (job.notes) card.append(makeElement("p", "job-card-notes", job.notes));
+    if (job.url) {
+      const link = makeElement("a", "job-link", "İlanı aç ↗");
+      link.href = job.url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      card.append(link);
+    }
+
+    const actions = makeElement("div", "job-card-actions");
+    const remove = makeElement("button", "text-button job-delete-button", "Sil");
+    remove.type = "button";
+    remove.addEventListener("click", () => {
+      if (!window.confirm(`“${job.title}” ilanını silmek istiyor musun?`)) return;
+      state.jobs = state.jobs.filter((item) => item.id !== job.id);
+      saveState("İş ilanı silindi.");
+      renderJobs();
+    });
+    actions.append(remove);
+    card.append(actions);
+    list.append(card);
+  });
+}
+
 function renderAll() {
   renderSummary();
   renderOverviewBudgets();
   renderFinance();
   renderSchedule();
+  renderJobs();
 }
 
 function setView(viewName) {
@@ -562,6 +642,9 @@ document.querySelector("#expense-form").addEventListener("submit", (event) => {
   form.reset();
   renderAll();
 });
+
+document.querySelector("#job-search").addEventListener("input", renderJobs);
+document.querySelector("#job-status-filter").addEventListener("change", renderJobs);
 
 renderAll();
 if ("serviceWorker" in navigator && location.protocol !== "file:") {

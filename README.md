@@ -4,6 +4,7 @@ Telefon ve bilgisayarda kullanılabilen, yüklenebilir bir web uygulaması proto
 
 ## Şu an neler yapılabilir?
 
+- Kayıtlı iş ilanlarını görüntüleme, silme, arama ve başvuru durumuna göre filtreleme
 - Aylık geliri ve sabit giderleri girme
 - Kategori adını ve bütçe tutarını sabit gider ekler gibi elle ekleme veya kaldırma
 - Kendi kategorilerine harcama ekleme ve bütçe çubuklarında harcanan/kalan tutarları görme
@@ -18,4 +19,4 @@ Klasörü VS Code'da açıp Live Server gibi bir yerel web sunucusuyla `index.ht
 
 ## Veri saklama ve sonraki adımlar
 
-Bu prototip gelir, gider ve plan verilerini yalnızca açıldığı tarayıcının yerel depolamasında tutar. Veriler cihazlar arasında eşitlenmez; tarayıcı verileri silinirse kaybolabilir. Paylaşımlı kullanım için ayrı bir Firebase projesi, erişim kuralları ve kimlik doğrulama kurulması gerekir. Bu bağlantı ve verilerin üzerinde değişiklik yapabilen ajan henüz eklenmemiştir; güvenli başlangıç olarak ajan öneri sunmalı, değişiklik senin onayından sonra uygulanmalıdır.
+Bu prototip gelir, gider, plan ve iş ilanı verilerini yalnızca açıldığı tarayıcının yerel depolamasında tutar. Veriler cihazlar arasında eşitlenmez; tarayıcı verileri silinirse kaybolabilir. Claude entegrasyonu ve cihazlar arası eşitleme henüz eklenmemiştir. Bunlar için sunucu tarafında kimlik doğrulama ve ortak veritabanı kurulmalı; Claude'a ilan kaydetme aracı sağlayan MCP servisi de güvenli şekilde barındırılmalıdır. Claude'dan aktarılan ilanlar ilk sürümde kullanıcı isteğiyle kaydedilecek şekilde tasarlanmalıdır.
