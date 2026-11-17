@@ -266,6 +266,14 @@ h1 {
   gap: 9px;
 }
 
+.account-dialog form[hidden] {
+  display: none;
+}
+
+.account-method-toggle {
+  margin: 12px 0;
+}
+
 .account-dialog input {
   width: 100%;
   height: 40px;

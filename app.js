@@ -173,11 +173,18 @@ function updateAccountUI() {
   const codeInput = document.querySelector("#account-code");
   const accountForm = document.querySelector("#account-form");
   const emailLabel = accountForm.querySelector('label[for="account-email"]');
+  const passwordLoginForm = document.querySelector("#password-login-form");
+  const passwordUpdateForm = document.querySelector("#password-update-form");
+  const otpToggle = document.querySelector("#account-otp-toggle");
 
   accountLabel.textContent = authSession ? "Hesap" : "Giriş yap";
   accountMessage.textContent = authSession
-    ? `Finansın, haftalık planın ve iş ilanların ${accountEmail} hesabında eşitleniyor.`
-    : "E-posta adresine giriş kodu gönderelim; kodu buraya girerek oturum açabilirsin.";
+    ? `Finansın, haftalık planın ve iş ilanların ${accountEmail} hesabında eşitleniyor. Buradan hesap parolanı belirleyebilir veya değiştirebilirsin.`
+    : "E-posta adresin ve parolanla giriş yap. Dilersen e-posta kodunu da kullanabilirsin.";
+  passwordLoginForm.hidden = Boolean(authSession);
+  passwordUpdateForm.hidden = !authSession;
+  otpToggle.hidden = Boolean(authSession);
+  accountForm.hidden = Boolean(authSession) || document.querySelector("#account-code").dataset.open !== "true";
   emailInput.hidden = Boolean(authSession);
   emailLabel.hidden = Boolean(authSession);
   accountForm.querySelector("#account-submit").hidden = Boolean(authSession);
@@ -329,6 +336,7 @@ async function initializeCloudJobs() {
         void loadAccountData(client);
       } else if (event === "SIGNED_OUT" && hadSession) {
         clearTimeout(remoteUserDataSaveTimer);
+        document.querySelector("#account-code").dataset.open = "false";
         state.jobs = [];
         saveState("Hesaptan çıkış yapıldı.");
         renderJobs();
@@ -866,6 +874,59 @@ window.addEventListener("focus", () => {
 const accountDialog = document.querySelector("#account-dialog");
 document.querySelector("#account-button").addEventListener("click", () => accountDialog.showModal());
 document.querySelector("#account-dialog-close").addEventListener("click", () => accountDialog.close());
+document.querySelector("#account-otp-toggle").addEventListener("click", () => {
+  const codeInput = document.querySelector("#account-code");
+  codeInput.dataset.open = "true";
+  updateAccountUI();
+  document.querySelector("#account-email").focus();
+});
+document.querySelector("#password-login-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const submitButton = document.querySelector("#password-login-submit");
+  submitButton.disabled = true;
+  try {
+    const client = await getSupabaseClient();
+    const { error } = await client.auth.signInWithPassword({
+      email: form.elements.email.value.trim(),
+      password: form.elements.password.value,
+    });
+    if (error) throw error;
+    form.reset();
+    accountDialog.close();
+  } catch (error) {
+    showNotice(`E-posta veya parola ile giriş yapılamadı: ${error.message}`);
+  } finally {
+    submitButton.disabled = false;
+  }
+});
+document.querySelector("#password-update-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const password = form.elements.password.value;
+  if (password.length < 8) {
+    showNotice("Parolan en az 8 karakter olmalı.");
+    return;
+  }
+  if (password !== form.elements["confirm-password"].value) {
+    showNotice("Girdiğin parolalar eşleşmiyor.");
+    return;
+  }
+
+  const submitButton = document.querySelector("#password-update-submit");
+  submitButton.disabled = true;
+  try {
+    const client = await getSupabaseClient();
+    const { error } = await client.auth.updateUser({ password });
+    if (error) throw error;
+    form.reset();
+    showNotice("Hesap parolan güncellendi. Artık diğer cihazlarda e-posta ve parolanla giriş yapabilirsin.");
+  } catch (error) {
+    showNotice(`Parola güncellenemedi: ${error.message}`);
+  } finally {
+    submitButton.disabled = false;
+  }
+});
 document.querySelector("#account-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const email = document.querySelector("#account-email").value.trim();
@@ -880,6 +941,7 @@ document.querySelector("#account-form").addEventListener("submit", async (event)
     if (error) throw error;
     const codeInput = document.querySelector("#account-code");
     codeInput.dataset.sent = "true";
+    codeInput.dataset.open = "true";
     updateAccountUI();
     document.querySelector("#account-message").textContent = "E-postandaki 6 haneli kodu buraya gir. Bağlantıya tıklamana gerek yok.";
     codeInput.focus();
