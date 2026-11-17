@@ -1,3 +1,5 @@
+import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "./supabase-config.js";
+
 const STORAGE_KEY = "personal-area-v1";
 const DAYS = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
 const LEGACY_CATEGORY_NAMES = {
@@ -125,10 +127,15 @@ function loadState() {
 
 let state = loadState();
 let hasPersistenceWarning = !notice.hidden;
+let supabaseClientPromise;
+let authSession = null;
+let accountEmail = "";
+let loadingRemoteJobs = false;
 
 function saveState(message = "Değişiklikler bu cihazda kaydedildi.") {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    const savedState = authSession ? { ...state, jobs: [] } : state;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState));
     if (hasPersistenceWarning) {
       hasPersistenceWarning = false;
       showNotice("Yeni başlangıç bu cihazda kaydedildi. Bu cihazdaki önceki kayıt artık değiştirildi.");
@@ -139,6 +146,97 @@ function saveState(message = "Değişiklikler bu cihazda kaydedildi.") {
   } catch {
     showNotice("Tarayıcı değişiklikleri kaydedemedi. Depolama alanı veya tarayıcı gizlilik ayarlarını kontrol et.");
     return false;
+  }
+}
+
+function getSupabaseClient() {
+  if (!supabaseClientPromise) {
+    supabaseClientPromise = import("https://esm.sh/@supabase/supabase-js@2")
+      .then(({ createClient }) => createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY));
+  }
+  return supabaseClientPromise;
+}
+
+function updateAccountUI() {
+  const accountLabel = document.querySelector("#account-label");
+  const accountMessage = document.querySelector("#account-message");
+  const signOutButton = document.querySelector("#account-signout");
+  const emailInput = document.querySelector("#account-email");
+  const accountForm = document.querySelector("#account-form");
+
+  accountLabel.textContent = authSession ? "Hesap" : "Giriş yap";
+  accountMessage.textContent = authSession
+    ? `İlanların ${accountEmail} hesabında eşitleniyor.`
+    : "E-posta adresine güvenli giriş bağlantısı gönderelim.";
+  emailInput.hidden = Boolean(authSession);
+  accountForm.querySelector(".field-label").hidden = Boolean(authSession);
+  accountForm.querySelector("#account-submit").hidden = Boolean(authSession);
+  signOutButton.hidden = !authSession;
+}
+
+function mapRemoteJob(job) {
+  return {
+    id: job.id,
+    title: job.title,
+    company: job.company,
+    url: job.url,
+    location: job.location,
+    status: job.status,
+    notes: job.notes,
+    createdAt: new Date(job.created_at).getTime(),
+    updatedAt: new Date(job.updated_at).getTime(),
+  };
+}
+
+async function loadRemoteJobs(client) {
+  if (!authSession || loadingRemoteJobs) return;
+  loadingRemoteJobs = true;
+  try {
+    const { data, error } = await client
+      .from("jobs")
+      .select("id, title, company, url, location, status, notes, created_at, updated_at")
+      .order("updated_at", { ascending: false });
+    if (error) throw error;
+
+    state.jobs = data.map(mapRemoteJob);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, jobs: [] }));
+    } catch (error) {
+      showNotice(`İlanlar buluttan yüklendi ancak bu cihazın diğer verileri kaydedilemedi: ${error.message}`);
+    }
+    renderJobs();
+  } catch (error) {
+    showNotice(`İlanlar Supabase'den yüklenemedi: ${error.message}`);
+  } finally {
+    loadingRemoteJobs = false;
+  }
+}
+
+async function initializeCloudJobs() {
+  try {
+    const client = await getSupabaseClient();
+    const { data: { session }, error } = await client.auth.getSession();
+    if (error) throw error;
+    authSession = session;
+    accountEmail = session?.user?.email ?? "";
+    updateAccountUI();
+    if (session) await loadRemoteJobs(client);
+
+    client.auth.onAuthStateChange((event, nextSession) => {
+      const hadSession = Boolean(authSession);
+      authSession = nextSession;
+      accountEmail = nextSession?.user?.email ?? "";
+      updateAccountUI();
+      if (nextSession) {
+        void loadRemoteJobs(client);
+      } else if (event === "SIGNED_OUT" && hadSession) {
+        state.jobs = [];
+        saveState("Hesaptan çıkış yapıldı.");
+        renderJobs();
+      }
+    });
+  } catch (error) {
+    showNotice(`Bulut bağlantısı başlatılamadı: ${error.message}`);
   }
 }
 
@@ -524,14 +622,28 @@ function renderJobs() {
     remove.type = "button";
     remove.addEventListener("click", () => {
       if (!window.confirm(`“${job.title}” ilanını silmek istiyor musun?`)) return;
-      state.jobs = state.jobs.filter((item) => item.id !== job.id);
-      saveState("İş ilanı silindi.");
-      renderJobs();
+      void deleteJob(job);
     });
     actions.append(remove);
     card.append(actions);
     list.append(card);
   });
+}
+
+async function deleteJob(job) {
+  if (authSession) {
+    try {
+      const client = await getSupabaseClient();
+      const { error } = await client.from("jobs").delete().eq("id", job.id);
+      if (error) throw error;
+    } catch (error) {
+      showNotice(`İlan silinemedi: ${error.message}`);
+      return;
+    }
+  }
+  state.jobs = state.jobs.filter((item) => item.id !== job.id);
+  saveState("İş ilanı silindi.");
+  renderJobs();
 }
 
 function renderAll() {
@@ -645,8 +757,48 @@ document.querySelector("#expense-form").addEventListener("submit", (event) => {
 
 document.querySelector("#job-search").addEventListener("input", renderJobs);
 document.querySelector("#job-status-filter").addEventListener("change", renderJobs);
+window.addEventListener("focus", () => {
+  if (!authSession) return;
+  void getSupabaseClient()
+    .then(loadRemoteJobs)
+    .catch((error) => showNotice(`İlanlar yenilenemedi: ${error.message}`));
+});
+
+const accountDialog = document.querySelector("#account-dialog");
+document.querySelector("#account-button").addEventListener("click", () => accountDialog.showModal());
+document.querySelector("#account-dialog-close").addEventListener("click", () => accountDialog.close());
+document.querySelector("#account-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const email = document.querySelector("#account-email").value.trim();
+  const submitButton = document.querySelector("#account-submit");
+  submitButton.disabled = true;
+  try {
+    const client = await getSupabaseClient();
+    const { error } = await client.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.href.split("#")[0] },
+    });
+    if (error) throw error;
+    document.querySelector("#account-message").textContent = "Giriş bağlantısını e-posta kutuna gönderdik.";
+  } catch (error) {
+    showNotice(`Giriş bağlantısı gönderilemedi: ${error.message}`);
+  } finally {
+    submitButton.disabled = false;
+  }
+});
+document.querySelector("#account-signout").addEventListener("click", async () => {
+  try {
+    const client = await getSupabaseClient();
+    const { error } = await client.auth.signOut();
+    if (error) throw error;
+    accountDialog.close();
+  } catch (error) {
+    showNotice(`Çıkış yapılamadı: ${error.message}`);
+  }
+});
 
 renderAll();
+void initializeCloudJobs();
 if ("serviceWorker" in navigator && location.protocol !== "file:") {
   navigator.serviceWorker.register("./sw.js").catch(() => {
     showNotice("Uygulama çevrimdışı kullanım için hazırlanamadı; internet bağlantısı gerekir.");

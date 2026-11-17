@@ -34,7 +34,7 @@
         </nav>
         <div class="sidebar-bottom">
           <span class="privacy-dot" aria-hidden="true"></span>
-          <span>Verilerin bu tarayıcıda</span>
+          <span>Finans ve plan bu cihazda</span>
         </div>
       </aside>
 
@@ -45,10 +45,29 @@
             <h1 id="page-title">Genel bakış</h1>
             <p class="page-subtitle" id="page-subtitle">Finansını ve haftanı tek bir yerden takip et.</p>
           </div>
-          <span class="device-badge"><span aria-hidden="true">●</span> Bu cihazda kayıtlı</span>
+          <button class="device-badge account-button" id="account-button" type="button">
+            <span aria-hidden="true">●</span><span id="account-label">Giriş yap</span>
+          </button>
         </header>
 
         <div class="notice" id="app-notice" role="status" aria-live="polite" hidden></div>
+
+        <dialog class="account-dialog" id="account-dialog" aria-labelledby="account-dialog-heading">
+          <div class="account-dialog-heading">
+            <div>
+              <p class="eyebrow">HESAP</p>
+              <h2 id="account-dialog-heading">Cihazlar arasında eşitle</h2>
+            </div>
+            <button class="icon-button" id="account-dialog-close" type="button" aria-label="Kapat">×</button>
+          </div>
+          <p class="muted-copy" id="account-message">E-posta adresine güvenli giriş bağlantısı gönderelim.</p>
+          <form id="account-form">
+            <label class="field-label" for="account-email">E-posta adresi</label>
+            <input id="account-email" name="email" type="email" autocomplete="email" required>
+            <button class="button button-primary" id="account-submit" type="submit">Giriş bağlantısı gönder</button>
+          </form>
+          <button class="text-button account-signout" id="account-signout" type="button" hidden>Çıkış yap</button>
+        </dialog>
 
         <section class="view" id="overview-view" aria-labelledby="overview-heading">
           <div class="section-heading">
@@ -108,7 +127,7 @@
               <button class="button button-secondary button-full" type="button" data-go="weekly">Haftalık plana git <span aria-hidden="true">→</span></button>
             </article>
           </div>
-          <p class="privacy-note"><span aria-hidden="true">◉</span> Şimdilik tüm bilgiler yalnızca bu tarayıcıda tutulur. Başka cihazlarla eşitleme henüz etkin değil.</p>
+          <p class="privacy-note"><span aria-hidden="true">◉</span> Finans ve haftalık plan bu tarayıcıda saklanır. Giriş yaptığında iş ilanların Supabase hesabınla eşitlenir.</p>
         </section>
 
         <section class="view" id="finance-view" aria-labelledby="finance-heading" hidden>

@@ -1,9 +1,10 @@
-const CACHE_NAME = "personal-area-v4";
+const CACHE_NAME = "personal-area-v5";
 const APP_FILES = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
+  "./supabase-config.js",
   "./manifest.webmanifest",
   "./icon.svg",
 ];

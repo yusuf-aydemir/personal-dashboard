@@ -223,6 +223,69 @@ h1 {
   font-size: 8px;
 }
 
+.account-button {
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.account-dialog {
+  width: min(440px, calc(100% - 32px));
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 24px 80px rgb(34 40 31 / 18%);
+}
+
+.account-dialog::backdrop {
+  background: rgb(36 40 32 / 38%);
+  backdrop-filter: blur(2px);
+}
+
+.account-dialog-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 13px;
+}
+
+.account-dialog-heading h2 {
+  margin: 4px 0 0;
+  font-size: 19px;
+}
+
+.account-dialog > .muted-copy {
+  margin-bottom: 17px;
+}
+
+.account-dialog form {
+  display: grid;
+  gap: 9px;
+}
+
+.account-dialog input {
+  width: 100%;
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  color: var(--ink);
+}
+
+.account-signout {
+  margin-top: 16px;
+  color: var(--red);
+}
+
+.account-dialog .icon-button {
+  flex: 0 0 auto;
+  font-size: 22px;
+}
+
 .notice {
   margin: -20px 0 25px;
   padding: 11px 14px;
