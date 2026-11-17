@@ -60,11 +60,14 @@
             </div>
             <button class="icon-button" id="account-dialog-close" type="button" aria-label="Kapat">×</button>
           </div>
-          <p class="muted-copy" id="account-message">E-posta adresine güvenli giriş bağlantısı gönderelim.</p>
+          <p class="muted-copy" id="account-message">E-posta adresine giriş kodu gönderelim; kodu buraya girerek oturum açabilirsin.</p>
           <form id="account-form">
             <label class="field-label" for="account-email">E-posta adresi</label>
             <input id="account-email" name="email" type="email" autocomplete="email" required>
-            <button class="button button-primary" id="account-submit" type="submit">Giriş bağlantısı gönder</button>
+            <button class="button button-primary" id="account-submit" type="submit">Giriş kodu gönder</button>
+            <label class="field-label" id="account-code-label" for="account-code" hidden>E-postadaki giriş kodu</label>
+            <input id="account-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="6 haneli kod" hidden>
+            <button class="button button-secondary" id="account-verify" type="button" hidden>Giriş yap</button>
           </form>
           <button class="text-button account-signout" id="account-signout" type="button" hidden>Çıkış yap</button>
         </dialog>

@@ -27,6 +27,7 @@ Gelir, gider ve plan verileri bu tarayıcıda kalır. İş ilanları da oturum a
 
 1. Supabase SQL Editor'da `supabase/migrations/20261116193000_create_jobs.sql` dosyasını çalıştır.
 2. Authentication → URL Configuration bölümünde `http://127.0.0.1:8765/**` (yerel deneme) ve `https://yusuf-aydemir.github.io/personal-dashboard/**` (yayınlanmış uygulama) adreslerini izin verilen yönlendirmelere ekle.
-3. Uygulamayı `localhost` veya GitHub Pages HTTPS adresinden açıp **Giriş yap** düğmesinden e-posta bağlantısıyla oturum aç.
+3. E-posta ile kodla giriş için Authentication → Email Templates → Magic Link şablonuna `{{ .Token }}` ekle. Uygulama bağlantının yanında e-posta kodunu da gönderir.
+4. Uygulamayı `localhost` veya GitHub Pages HTTPS adresinden açıp **Giriş yap** düğmesinden kod iste; e-postadaki 6 haneli kodu uygulamaya gir. Böylece e-posta bağlantısını Safari'de açmak gerekmez.
 
 İlanlar Supabase'de kullanıcı hesabına bağlı olarak saklanır ve Row Level Security ile yalnızca o kullanıcıya açılır. Supabase URL ve publishable key `supabase-config.js` dosyasındadır; publishable key tarayıcıda kullanılmak içindir, ancak `secret` veya `service_role` anahtarını bu dosyaya koyma. Claude Web'den ilan yazdırmak için ayrıca internete açık, kimliği doğrulanmış bir uzak MCP sunucusu dağıtılmalıdır; bu MCP sunucusu henüz kurulmuş değildir.

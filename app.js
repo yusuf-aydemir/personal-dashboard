@@ -162,15 +162,20 @@ function updateAccountUI() {
   const accountMessage = document.querySelector("#account-message");
   const signOutButton = document.querySelector("#account-signout");
   const emailInput = document.querySelector("#account-email");
+  const codeInput = document.querySelector("#account-code");
   const accountForm = document.querySelector("#account-form");
+  const emailLabel = accountForm.querySelector('label[for="account-email"]');
 
   accountLabel.textContent = authSession ? "Hesap" : "Giriş yap";
   accountMessage.textContent = authSession
     ? `İlanların ${accountEmail} hesabında eşitleniyor.`
-    : "E-posta adresine güvenli giriş bağlantısı gönderelim.";
+    : "E-posta adresine giriş kodu gönderelim; kodu buraya girerek oturum açabilirsin.";
   emailInput.hidden = Boolean(authSession);
-  accountForm.querySelector(".field-label").hidden = Boolean(authSession);
+  emailLabel.hidden = Boolean(authSession);
   accountForm.querySelector("#account-submit").hidden = Boolean(authSession);
+  document.querySelector("#account-code-label").hidden = Boolean(authSession) || !codeInput.dataset.sent;
+  codeInput.hidden = Boolean(authSession) || !codeInput.dataset.sent;
+  document.querySelector("#account-verify").hidden = Boolean(authSession) || !codeInput.dataset.sent;
   signOutButton.hidden = !authSession;
 }
 
@@ -779,11 +784,36 @@ document.querySelector("#account-form").addEventListener("submit", async (event)
       options: { emailRedirectTo: window.location.href.split("#")[0] },
     });
     if (error) throw error;
-    document.querySelector("#account-message").textContent = "Giriş bağlantısını e-posta kutuna gönderdik.";
+    const codeInput = document.querySelector("#account-code");
+    codeInput.dataset.sent = "true";
+    updateAccountUI();
+    document.querySelector("#account-message").textContent = "E-postandaki 6 haneli kodu buraya gir. Bağlantıya tıklamana gerek yok.";
+    codeInput.focus();
   } catch (error) {
-    showNotice(`Giriş bağlantısı gönderilemedi: ${error.message}`);
+    showNotice(`Giriş kodu gönderilemedi: ${error.message}`);
   } finally {
     submitButton.disabled = false;
+  }
+});
+document.querySelector("#account-verify").addEventListener("click", async () => {
+  const email = document.querySelector("#account-email").value.trim();
+  const token = document.querySelector("#account-code").value.trim();
+  if (!/^\d{6}$/.test(token)) {
+    showNotice("E-postadaki 6 haneli giriş kodunu gir.");
+    return;
+  }
+
+  const verifyButton = document.querySelector("#account-verify");
+  verifyButton.disabled = true;
+  try {
+    const client = await getSupabaseClient();
+    const { error } = await client.auth.verifyOtp({ email, token, type: "email" });
+    if (error) throw error;
+    accountDialog.close();
+  } catch (error) {
+    showNotice(`Giriş kodu doğrulanamadı: ${error.message}`);
+  } finally {
+    verifyButton.disabled = false;
   }
 });
 document.querySelector("#account-signout").addEventListener("click", async () => {

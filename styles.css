@@ -276,6 +276,12 @@ h1 {
   color: var(--ink);
 }
 
+.account-dialog input[hidden],
+.account-dialog label[hidden],
+.account-dialog button[hidden] {
+  display: none;
+}
+
 .account-signout {
   margin-top: 16px;
   color: var(--red);
