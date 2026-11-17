@@ -131,8 +131,13 @@ let supabaseClientPromise;
 let authSession = null;
 let accountEmail = "";
 let loadingRemoteJobs = false;
+let loadingRemoteUserData = false;
+let remoteUserDataSaveTimer;
+let remoteUserDataSaveQueue = Promise.resolve();
 
-function saveState(message = "Değişiklikler bu cihazda kaydedildi.") {
+function saveState(message = authSession
+  ? "Değişiklikler bu cihaza kaydedildi; Supabase ile eşitleniyor."
+  : "Değişiklikler bu cihazda kaydedildi.") {
   try {
     const savedState = authSession ? { ...state, jobs: [] } : state;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(savedState));
@@ -141,6 +146,9 @@ function saveState(message = "Değişiklikler bu cihazda kaydedildi.") {
       showNotice("Yeni başlangıç bu cihazda kaydedildi. Bu cihazdaki önceki kayıt artık değiştirildi.");
     } else {
       showNotice(message);
+    }
+    if (authSession && !loadingRemoteUserData) {
+      scheduleRemoteUserDataSave();
     }
     return true;
   } catch {
@@ -168,7 +176,7 @@ function updateAccountUI() {
 
   accountLabel.textContent = authSession ? "Hesap" : "Giriş yap";
   accountMessage.textContent = authSession
-    ? `İlanların ${accountEmail} hesabında eşitleniyor.`
+    ? `Finansın, haftalık planın ve iş ilanların ${accountEmail} hesabında eşitleniyor.`
     : "E-posta adresine giriş kodu gönderelim; kodu buraya girerek oturum açabilirsin.";
   emailInput.hidden = Boolean(authSession);
   emailLabel.hidden = Boolean(authSession);
@@ -191,6 +199,87 @@ function mapRemoteJob(job) {
     createdAt: new Date(job.created_at).getTime(),
     updatedAt: new Date(job.updated_at).getTime(),
   };
+}
+
+function getSyncableState() {
+  const { jobs, ...syncableState } = state;
+  return syncableState;
+}
+
+function scheduleRemoteUserDataSave() {
+  clearTimeout(remoteUserDataSaveTimer);
+  const userId = authSession?.user?.id;
+  if (!userId) return;
+
+  remoteUserDataSaveTimer = setTimeout(() => {
+    const data = getSyncableState();
+    remoteUserDataSaveQueue = remoteUserDataSaveQueue
+      .then(async () => {
+        if (authSession?.user?.id !== userId) return;
+        const client = await getSupabaseClient();
+        const { error } = await client.from("user_data").upsert({
+          user_id: userId,
+          data,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "user_id" });
+        if (error) throw error;
+        showNotice("Değişiklikler Supabase hesabınla eşitlendi.");
+      })
+      .catch((error) => {
+        showNotice(`Veriler Supabase ile eşitlenemedi: ${error.message}`);
+      });
+  }, 350);
+}
+
+async function loadRemoteUserData(client) {
+  if (!authSession || loadingRemoteUserData) return;
+  loadingRemoteUserData = true;
+  try {
+    const { data: remoteRecord, error } = await client
+      .from("user_data")
+      .select("data")
+      .eq("user_id", authSession.user.id)
+      .maybeSingle();
+    if (error) throw error;
+
+    if (!remoteRecord) {
+      const { error: saveError } = await client.from("user_data").upsert({
+        user_id: authSession.user.id,
+        data: getSyncableState(),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id" });
+      if (saveError) throw saveError;
+      showNotice("Bu cihazdaki finans ve plan verilerin Supabase hesabına kaydedildi.");
+      return;
+    }
+
+    if (!isValidState(remoteRecord.data)) {
+      throw new TypeError("Supabase'de kayıtlı finans ve plan verileri geçerli biçimde değil.");
+    }
+
+    state = {
+      ...state,
+      ...remoteRecord.data,
+      currency: CURRENCY_SYMBOLS[remoteRecord.data.currency] ? remoteRecord.data.currency : "TRY",
+      categories: remoteRecord.data.categories ?? [],
+      jobs: state.jobs,
+      expenses: remoteRecord.data.expenses.map((expense) => ({
+        ...expense,
+        categoryName: expense.categoryName || LEGACY_CATEGORY_NAMES[expense.category] || "Kaldırılmış kategori",
+      })),
+    };
+    renderAll();
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, jobs: [] }));
+      showNotice("Finans ve haftalık plan verilerin Supabase hesabından yüklendi.");
+    } catch (error) {
+      showNotice(`Veriler buluttan yüklendi ancak bu cihaza kaydedilemedi: ${error.message}`);
+    }
+  } catch (error) {
+    showNotice(`Finans ve plan verileri Supabase ile eşitlenemedi: ${error.message}`);
+  } finally {
+    loadingRemoteUserData = false;
+  }
 }
 
 async function loadRemoteJobs(client) {
@@ -217,6 +306,10 @@ async function loadRemoteJobs(client) {
   }
 }
 
+async function loadAccountData(client) {
+  await Promise.all([loadRemoteJobs(client), loadRemoteUserData(client)]);
+}
+
 async function initializeCloudJobs() {
   try {
     const client = await getSupabaseClient();
@@ -225,7 +318,7 @@ async function initializeCloudJobs() {
     authSession = session;
     accountEmail = session?.user?.email ?? "";
     updateAccountUI();
-    if (session) await loadRemoteJobs(client);
+    if (session) await loadAccountData(client);
 
     client.auth.onAuthStateChange((event, nextSession) => {
       const hadSession = Boolean(authSession);
@@ -233,8 +326,9 @@ async function initializeCloudJobs() {
       accountEmail = nextSession?.user?.email ?? "";
       updateAccountUI();
       if (nextSession) {
-        void loadRemoteJobs(client);
+        void loadAccountData(client);
       } else if (event === "SIGNED_OUT" && hadSession) {
+        clearTimeout(remoteUserDataSaveTimer);
         state.jobs = [];
         saveState("Hesaptan çıkış yapıldı.");
         renderJobs();

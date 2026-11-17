@@ -23,11 +23,12 @@ Klasörü VS Code'da açıp Live Server gibi bir yerel web sunucusuyla `index.ht
 
 ## Veri saklama ve sonraki adımlar
 
-Gelir, gider ve plan verileri bu tarayıcıda kalır. İş ilanları da oturum açmadan önce yerel olarak gösterilir. Supabase bulut eşitlemesini etkinleştirmek için:
+Gelir, gider, bütçe, haftalık plan ve iş ilanları oturum açtığında Supabase hesabınla eşitlenir. Oturum açmadan önce veriler bu tarayıcıda saklanır. Supabase eşitlemesini etkinleştirmek için:
 
 1. Supabase SQL Editor'da `supabase/migrations/20261116193000_create_jobs.sql` dosyasını çalıştır.
-2. Authentication → URL Configuration bölümünde `http://127.0.0.1:8765/**` (yerel deneme) ve `https://yusuf-aydemir.github.io/personal-dashboard/**` (yayınlanmış uygulama) adreslerini izin verilen yönlendirmelere ekle.
-3. E-posta ile kodla giriş için Authentication → Email Templates → Magic Link şablonuna `{{ .Token }}` ekle. Uygulama bağlantının yanında e-posta kodunu da gönderir.
-4. Uygulamayı `localhost` veya GitHub Pages HTTPS adresinden açıp **Giriş yap** düğmesinden kod iste; e-postadaki 6 haneli kodu uygulamaya gir. Böylece e-posta bağlantısını Safari'de açmak gerekmez.
+2. Supabase SQL Editor'da `supabase/migrations/20261117114300_sync_user_data.sql` dosyasını çalıştır.
+3. Authentication → URL Configuration bölümünde `http://127.0.0.1:8765/**` (yerel deneme) ve `https://yusuf-aydemir.github.io/personal-dashboard/**` (yayınlanmış uygulama) adreslerini izin verilen yönlendirmelere ekle.
+4. E-posta ile kodla giriş için Authentication → Email Templates → Magic Link şablonuna `{{ .Token }}` ekle. Uygulama bağlantının yanında e-posta kodunu da gönderir.
+5. Uygulamayı `localhost` veya GitHub Pages HTTPS adresinden açıp **Giriş yap** düğmesinden kod iste; e-postadaki 6 haneli kodu uygulamaya gir. Böylece e-posta bağlantısını Safari'de açmak gerekmez.
 
-İlanlar Supabase'de kullanıcı hesabına bağlı olarak saklanır ve Row Level Security ile yalnızca o kullanıcıya açılır. Supabase URL ve publishable key `supabase-config.js` dosyasındadır; publishable key tarayıcıda kullanılmak içindir, ancak `secret` veya `service_role` anahtarını bu dosyaya koyma. Claude Web'den ilan yazdırmak için ayrıca internete açık, kimliği doğrulanmış bir uzak MCP sunucusu dağıtılmalıdır; bu MCP sunucusu henüz kurulmuş değildir.
+İlanlar ve diğer kullanıcı verileri Supabase'de hesaba bağlı olarak saklanır; Row Level Security ile yalnızca ilgili kullanıcı erişebilir. Kullanıcının ilk girişi sırasında bulut kaydı yoksa o cihazdaki finans ve plan verileri ilk bulut kaydı olarak yüklenir; bulut kaydı zaten varsa buluttaki veriler kullanılır. Supabase URL ve publishable key `supabase-config.js` dosyasındadır; publishable key tarayıcıda kullanılmak içindir, ancak `secret` veya `service_role` anahtarını bu dosyaya koyma. Claude Web'den ilan yazdırmak için ayrıca internete açık, kimliği doğrulanmış bir uzak MCP sunucusu dağıtılmalıdır; bu MCP sunucusu henüz kurulmuş değildir.
