@@ -167,6 +167,7 @@ function getSupabaseClient() {
 
 function updateAccountUI() {
   const accountLabel = document.querySelector("#account-label");
+  const accountStatusDot = document.querySelector("#account-status-dot");
   const accountMessage = document.querySelector("#account-message");
   const signOutButton = document.querySelector("#account-signout");
   const emailInput = document.querySelector("#account-email");
@@ -178,6 +179,7 @@ function updateAccountUI() {
   const otpToggle = document.querySelector("#account-otp-toggle");
 
   accountLabel.textContent = authSession ? "Hesap" : "Giriş yap";
+  accountStatusDot.classList.toggle("is-signed-in", Boolean(authSession));
   accountMessage.textContent = authSession
     ? `Finansın, haftalık planın ve iş ilanların ${accountEmail} hesabında eşitleniyor. Buradan hesap parolanı belirleyebilir veya değiştirebilirsin.`
     : "E-posta adresin ve parolanla giriş yap. Dilersen e-posta kodunu da kullanabilirsin.";

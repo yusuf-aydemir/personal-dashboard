@@ -152,12 +152,20 @@ select:focus-visible,
 }
 
 .privacy-dot,
-.device-badge > span:first-child {
+.account-status-dot {
   width: 7px;
   height: 7px;
   flex: 0 0 7px;
   border-radius: 50%;
+}
+
+.privacy-dot,
+.account-status-dot.is-signed-in {
   background: var(--green);
+}
+
+.account-status-dot {
+  background: #9a9c95;
 }
 
 .main-content {
@@ -218,10 +226,6 @@ h1 {
   background: rgb(255 255 255 / 54%);
   color: #686b63;
   font-size: 11px;
-}
-
-.device-badge > span:first-child {
-  font-size: 8px;
 }
 
 .device-badge > span:last-child {
@@ -1374,7 +1378,7 @@ h2 {
     font-size: 9px;
   }
 
-  .device-badge > span:first-child {
+  .account-status-dot {
     width: 6px;
     height: 6px;
     flex-basis: 6px;
