@@ -132,6 +132,7 @@ let authSession = null;
 let accountEmail = "";
 let loadingRemoteJobs = false;
 let loadingRemoteUserData = false;
+let lastSyncedSchedule;
 let remoteUserDataSaveTimer;
 let remoteUserDataSaveQueue = Promise.resolve();
 
@@ -215,23 +216,41 @@ function getSyncableState() {
   return syncableState;
 }
 
+function cloneSchedule(schedule) {
+  return schedule.map((day) => [...day]);
+}
+
+function schedulesEqual(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
 function scheduleRemoteUserDataSave() {
   clearTimeout(remoteUserDataSaveTimer);
   const userId = authSession?.user?.id;
   if (!userId) return;
 
   remoteUserDataSaveTimer = setTimeout(() => {
+    remoteUserDataSaveTimer = undefined;
     const data = getSyncableState();
+    const scheduleAtSave = cloneSchedule(data.schedule);
+    const baseScheduleAtSave = cloneSchedule(lastSyncedSchedule ?? scheduleAtSave);
     remoteUserDataSaveQueue = remoteUserDataSaveQueue
       .then(async () => {
         if (authSession?.user?.id !== userId) return;
         const client = await getSupabaseClient();
-        const { error } = await client.from("user_data").upsert({
-          user_id: userId,
-          data,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: "user_id" });
+        const { data: savedData, error } = await client.rpc("save_user_data_with_schedule", {
+          p_data: data,
+          p_base_schedule: baseScheduleAtSave,
+        });
         if (error) throw error;
+        if (!isValidState(savedData)) {
+          throw new TypeError("Supabase returned invalid dashboard data after saving.");
+        }
+        lastSyncedSchedule = cloneSchedule(savedData.schedule);
+        if (schedulesEqual(state.schedule, scheduleAtSave)) {
+          state.schedule = cloneSchedule(savedData.schedule);
+          renderSchedule();
+        }
         showNotice("Değişiklikler Supabase hesabınla eşitlendi.");
       })
       .catch((error) => {
@@ -258,6 +277,7 @@ async function loadRemoteUserData(client) {
         updated_at: new Date().toISOString(),
       }, { onConflict: "user_id" });
       if (saveError) throw saveError;
+      lastSyncedSchedule = cloneSchedule(state.schedule);
       showNotice("Bu cihazdaki finans ve plan verilerin Supabase hesabına kaydedildi.");
       return;
     }
@@ -277,6 +297,7 @@ async function loadRemoteUserData(client) {
         categoryName: expense.categoryName || LEGACY_CATEGORY_NAMES[expense.category] || "Kaldırılmış kategori",
       })),
     };
+    lastSyncedSchedule = cloneSchedule(state.schedule);
     renderAll();
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, jobs: [] }));
@@ -338,6 +359,7 @@ async function initializeCloudJobs() {
         void loadAccountData(client);
       } else if (event === "SIGNED_OUT" && hadSession) {
         clearTimeout(remoteUserDataSaveTimer);
+        lastSyncedSchedule = undefined;
         document.querySelector("#account-code").dataset.open = "false";
         state.jobs = [];
         saveState("Hesaptan çıkış yapıldı.");
@@ -869,7 +891,11 @@ document.querySelector("#job-status-filter").addEventListener("change", renderJo
 window.addEventListener("focus", () => {
   if (!authSession) return;
   void getSupabaseClient()
-    .then(loadRemoteJobs)
+    .then(async (client) => {
+      if (remoteUserDataSaveTimer) return;
+      await remoteUserDataSaveQueue;
+      await loadAccountData(client);
+    })
     .catch((error) => showNotice(`İlanlar yenilenemedi: ${error.message}`));
 });
 

@@ -1,0 +1,2 @@
+[functions.weekly-schedule-mcp]
+verify_jwt = false
