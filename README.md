@@ -19,7 +19,7 @@ Klasörü VS Code'da açıp Live Server gibi bir yerel web sunucusuyla `index.ht
 
 ## GitHub Pages yayını
 
-`main` dalına gönderilen her değişiklik GitHub Actions ile `https://yusuf-aydemir.github.io/personal-dashboard-supabase/` adresine yayınlanır. Depoda **Settings → Pages → Build and deployment → Source** ayarını **GitHub Actions** olarak seç. İlk dağıtım tamamlandıktan sonra Supabase **Authentication → URL Configuration → Redirect URLs** listesine `https://yusuf-aydemir.github.io/personal-dashboard-supabase/**` ekle.
+`main` dalına gönderilen her değişiklik GitHub Actions ile `https://yusuf-aydemir.github.io/personal-dashboard/` adresine yayınlanır. Depoda **Settings → Pages → Build and deployment → Source** ayarını **GitHub Actions** olarak seç. İlk dağıtım tamamlandıktan sonra Supabase **Authentication → URL Configuration → Redirect URLs** listesine `https://yusuf-aydemir.github.io/personal-dashboard/**` ekle.
 
 ## Veri saklama ve sonraki adımlar
 
@@ -28,7 +28,7 @@ Gelir, gider, bütçe, haftalık plan ve iş ilanları oturum açtığında Supa
 1. Supabase SQL Editor'da `supabase/migrations/20261116193000_create_jobs.sql` dosyasını çalıştır.
 2. Supabase SQL Editor'da `supabase/migrations/20261117114300_sync_user_data.sql` dosyasını çalıştır.
 3. Supabase SQL Editor'da `supabase/migrations/20261118120000_mcp_weekly_schedule.sql` dosyasını çalıştır.
-4. Authentication → URL Configuration bölümünde `http://127.0.0.1:8765/**` (yerel deneme) ve `https://yusuf-aydemir.github.io/personal-dashboard-supabase/**` (yayınlanmış uygulama) adreslerini izin verilen yönlendirmelere ekle.
+4. Authentication → URL Configuration bölümünde `http://127.0.0.1:8765/**` (yerel deneme) ve `https://yusuf-aydemir.github.io/personal-dashboard/**` (yayınlanmış uygulama) adreslerini izin verilen yönlendirmelere ekle.
 5. E-posta ile kodla giriş için Authentication → Email Templates → Magic Link şablonuna `{{ .Token }}` ekle. Uygulama bağlantının yanında e-posta kodunu da gönderir.
 6. Uygulamayı `localhost` veya GitHub Pages HTTPS adresinden açıp **Giriş yap** düğmesinden kod iste; e-postadaki 6 haneli kodu uygulamaya gir. Böylece e-posta bağlantısını Safari'de açmak gerekmez.
 7. Oturum açtıktan sonra hesap penceresindeki **Parolayı belirle / değiştir** formunu kullan. Sonraki cihazlarda aynı e-posta ve parolayla giriş yapabilirsin; bu normal girişte e-posta göndermez. E-posta kodu yöntemi de yedek olarak kullanılabilir.
