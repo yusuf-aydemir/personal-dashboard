@@ -2,6 +2,7 @@ import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "./supabase-config.js";
 
 const STORAGE_KEY = "personal-area-v1";
 const DAYS = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
+const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const LEGACY_CATEGORY_NAMES = {
   groceries: "Market & yemek",
   dining: "Dışarıda yeme-içme",
@@ -19,7 +20,7 @@ const JOB_STATUSES = {
   rejected: "Olumsuz",
 };
 const VIEW_COPY = {
-  overview: ["Genel bakış", "Finansını ve haftanı tek bir yerden takip et."],
+  overview: ["Genel bakış", "Saat planını ve notlarını tek bir yerden takip et."],
   finance: ["Finans", "Gelirini, sabit giderlerini ve aylık bütçeni düzenle."],
   weekly: ["Haftalık plan", "Boş ve meşgul zamanlarını tek bir tabloda gör."],
   jobs: ["İş ilanları", "İlanlarını ve başvuru sürecini takip et."],
@@ -35,6 +36,7 @@ function createDefaultState() {
     categories: [],
     jobs: [],
     schedule: makeEmptySchedule(),
+    notes: "",
   };
 }
 
@@ -87,6 +89,7 @@ function isValidState(value) {
         && Object.hasOwn(JOB_STATUSES, job.status)
         && Number.isFinite(job.createdAt)
         && Number.isFinite(job.updatedAt))))
+    && (value.notes === undefined || typeof value.notes === "string")
     && Array.isArray(value.schedule)
     && value.schedule.length === DAYS.length
     && value.schedule.every((day) => Array.isArray(day)
@@ -114,6 +117,7 @@ function loadState() {
       currency: CURRENCY_SYMBOLS[parsed.currency] ? parsed.currency : defaults.currency,
       categories: parsed.categories ?? [],
       jobs: parsed.jobs ?? [],
+      notes: parsed.notes ?? defaults.notes,
       expenses: parsed.expenses.map((expense) => ({
         ...expense,
         categoryName: expense.categoryName || LEGACY_CATEGORY_NAMES[expense.category] || "Kaldırılmış kategori",
@@ -135,6 +139,7 @@ let loadingRemoteUserData = false;
 let lastSyncedSchedule;
 let remoteUserDataSaveTimer;
 let remoteUserDataSaveQueue = Promise.resolve();
+let overviewDayOffset = 0;
 
 function saveState(message = authSession
   ? "Değişiklikler bu cihaza kaydedildi; Supabase ile eşitleniyor."
@@ -182,7 +187,7 @@ function updateAccountUI() {
   accountLabel.textContent = authSession ? "Hesap" : "Giriş yap";
   accountStatusDot.classList.toggle("is-signed-in", Boolean(authSession));
   accountMessage.textContent = authSession
-    ? `Finansın, haftalık planın ve iş ilanların ${accountEmail} hesabında eşitleniyor. Buradan hesap parolanı belirleyebilir veya değiştirebilirsin.`
+    ? `Notların, finansın, haftalık planın ve iş ilanların ${accountEmail} hesabında eşitleniyor. Buradan hesap parolanı belirleyebilir veya değiştirebilirsin.`
     : "E-posta adresin ve parolanla giriş yap. Dilersen e-posta kodunu da kullanabilirsin.";
   passwordLoginForm.hidden = Boolean(authSession);
   passwordUpdateForm.hidden = !authSession;
@@ -250,6 +255,7 @@ function scheduleRemoteUserDataSave() {
         if (schedulesEqual(state.schedule, scheduleAtSave)) {
           state.schedule = cloneSchedule(savedData.schedule);
           renderSchedule();
+          renderOverviewClock();
         }
         showNotice("Değişiklikler Supabase hesabınla eşitlendi.");
       })
@@ -278,12 +284,12 @@ async function loadRemoteUserData(client) {
       }, { onConflict: "user_id" });
       if (saveError) throw saveError;
       lastSyncedSchedule = cloneSchedule(state.schedule);
-      showNotice("Bu cihazdaki finans ve plan verilerin Supabase hesabına kaydedildi.");
+      showNotice("Bu cihazdaki veriler Supabase hesabına kaydedildi.");
       return;
     }
 
     if (!isValidState(remoteRecord.data)) {
-      throw new TypeError("Supabase'de kayıtlı finans ve plan verileri geçerli biçimde değil.");
+      throw new TypeError("Supabase'de kayıtlı panel verileri geçerli biçimde değil.");
     }
 
     state = {
@@ -291,6 +297,7 @@ async function loadRemoteUserData(client) {
       ...remoteRecord.data,
       currency: CURRENCY_SYMBOLS[remoteRecord.data.currency] ? remoteRecord.data.currency : "TRY",
       categories: remoteRecord.data.categories ?? [],
+      notes: remoteRecord.data.notes ?? state.notes,
       jobs: state.jobs,
       expenses: remoteRecord.data.expenses.map((expense) => ({
         ...expense,
@@ -301,12 +308,12 @@ async function loadRemoteUserData(client) {
     renderAll();
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, jobs: [] }));
-      showNotice("Finans ve haftalık plan verilerin Supabase hesabından yüklendi.");
+      showNotice("Panel verilerin Supabase hesabından yüklendi.");
     } catch (error) {
       showNotice(`Veriler buluttan yüklendi ancak bu cihaza kaydedilemedi: ${error.message}`);
     }
   } catch (error) {
-    showNotice(`Finans ve plan verileri Supabase ile eşitlenemedi: ${error.message}`);
+    showNotice(`Panel verileri Supabase ile eşitlenemedi: ${error.message}`);
   } finally {
     loadingRemoteUserData = false;
   }
@@ -414,38 +421,158 @@ function makeElement(tag, className, text) {
   return element;
 }
 
-function renderSummary() {
-  const fixed = sumFixedExpenses();
-  const spent = sumExpenses();
-  document.querySelector("#summary-income").textContent = money(state.income);
-  document.querySelector("#summary-fixed").textContent = money(fixed);
-  document.querySelector("#summary-spent").textContent = money(spent);
-  document.querySelector("#summary-available").textContent = money(state.income - fixed - spent);
+function makeSvgElement(tagName, attributes = {}) {
+  const element = document.createElementNS(SVG_NAMESPACE, tagName);
+  Object.entries(attributes).forEach(([name, value]) => element.setAttribute(name, value));
+  return element;
 }
 
-function renderOverviewBudgets() {
-  const container = document.querySelector("#overview-budgets");
-  container.replaceChildren();
+function clockPoint(radius, angleDegrees) {
+  const radians = (angleDegrees - 90) * Math.PI / 180;
+  return {
+    x: 160 + radius * Math.cos(radians),
+    y: 160 + radius * Math.sin(radians),
+  };
+}
 
-  if (state.categories.length === 0) {
-    container.append(makeElement("p", "empty-state", "Henüz bütçe kategorisi eklemedin."));
+function scheduleSegmentPath(index) {
+  const segmentAngle = 360 / 12;
+  const startAngle = index * segmentAngle + 1;
+  const endAngle = (index + 1) * segmentAngle - 1;
+  const outerStart = clockPoint(145, startAngle);
+  const outerEnd = clockPoint(145, endAngle);
+  const innerEnd = clockPoint(124, endAngle);
+  const innerStart = clockPoint(124, startAngle);
+  return [
+    `M ${outerStart.x} ${outerStart.y}`,
+    `A 145 145 0 0 1 ${outerEnd.x} ${outerEnd.y}`,
+    `L ${innerEnd.x} ${innerEnd.y}`,
+    `A 124 124 0 0 0 ${innerStart.x} ${innerStart.y}`,
+    "Z",
+  ].join(" ");
+}
+
+function formatScheduleHour(hour) {
+  const hourInDay = ((hour % 24) + 24) % 24;
+  return `${String(hourInDay).padStart(2, "0")}:00`;
+}
+
+function getOverviewDate() {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() + overviewDayOffset);
+  return date;
+}
+
+function renderOverviewClock() {
+  const now = new Date();
+  const selectedDate = getOverviewDate();
+  const dayIndex = (selectedDate.getDay() + 6) % DAYS.length;
+  const hour = now.getHours();
+  const minute = now.getMinutes();
+  const isToday = overviewDayOffset === 0;
+  const windowStartHour = isToday ? hour : 6;
+  const hourLabel = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  const dialHour = hour % 12 + minute / 60;
+  const timeElement = document.querySelector("#overview-current-time");
+  const dateElement = document.querySelector("#overview-day-label");
+  const todayButton = document.querySelector("#overview-today");
+  const clock = document.querySelector("#overview-clock");
+  const slots = document.querySelector("#overview-clock-slots");
+  const ticks = document.querySelector("#overview-clock-ticks");
+  const labels = document.querySelector("#overview-clock-labels");
+  const marker = document.querySelector("#overview-time-marker");
+
+  timeElement.textContent = hourLabel;
+  timeElement.dateTime = now.toISOString();
+  dateElement.textContent = new Intl.DateTimeFormat("tr-TR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(selectedDate);
+  dateElement.dateTime = [
+    selectedDate.getFullYear(),
+    String(selectedDate.getMonth() + 1).padStart(2, "0"),
+    String(selectedDate.getDate()).padStart(2, "0"),
+  ].join("-");
+  todayButton.hidden = isToday;
+
+  document.querySelector("#overview-hour-hand").setAttribute(
+    "transform",
+    `rotate(${dialHour * 30} 160 160)`,
+  );
+  document.querySelector("#overview-minute-hand").setAttribute(
+    "transform",
+    `rotate(${minute * 6} 160 160)`,
+  );
+
+  slots.replaceChildren();
+  for (let offset = 0; offset < 12; offset += 1) {
+    const timelineHour = windowStartHour + offset;
+    const hourOfDay = timelineHour % 24;
+    const dayOffset = Math.floor(timelineHour / 24);
+    const slotDayIndex = (dayIndex + dayOffset) % DAYS.length;
+    const isOutsideSchedule = hourOfDay < 6;
+    const value = isOutsideSchedule ? null : state.schedule[slotDayIndex][hourOfDay - 6];
+    const segment = makeSvgElement("path", {
+      class: `clock-segment clock-segment--${isOutsideSchedule ? "outside" : value ?? "unplanned"}`,
+      d: scheduleSegmentPath(hourOfDay % 12),
+    });
+    const title = makeSvgElement("title");
+    const period = `${formatScheduleHour(hourOfDay)}–${formatScheduleHour(hourOfDay + 1)}`;
+    title.textContent = isOutsideSchedule
+      ? `${period} · Haftalık plan aralığı dışında`
+      : `${period} · ${describeSlot(value)}`;
+    if (dayOffset > 0) title.textContent = `Ertesi gün · ${title.textContent}`;
+    segment.append(title);
+    slots.append(segment);
   }
 
-  state.categories.slice(0, 4).forEach((category) => {
-    const budget = assignedBudget(category.id);
-    const spent = sumExpenses(category.id);
-    const row = makeElement("div", "compact-budget");
-    row.append(makeElement("span", "compact-budget-label", category.name));
+  ticks.replaceChildren();
+  for (let tickIndex = 0; tickIndex < 60; tickIndex += 1) {
+    const angle = tickIndex * 6;
+    const isMajorTick = tickIndex % 5 === 0;
+    const innerPoint = clockPoint(isMajorTick ? 147 : 153, angle);
+    const outerPoint = clockPoint(160, angle);
+    const tick = makeSvgElement("line", {
+      class: `clock-tick${isMajorTick ? " clock-tick--major" : ""}`,
+      x1: innerPoint.x,
+      y1: innerPoint.y,
+      x2: outerPoint.x,
+      y2: outerPoint.y,
+    });
+    ticks.append(tick);
+  }
 
-    const track = makeElement("div", "mini-track");
-    const fill = makeElement("div", "mini-fill");
-    const ratio = budget > 0 ? spent / budget : spent > 0 ? 1 : 0;
-    fill.style.width = `${Math.min(ratio * 100, 100)}%`;
-    if (ratio > 1) fill.classList.add("is-over");
-    track.append(fill);
-    row.append(track, makeElement("span", "compact-budget-value", money(budget)));
-    container.append(row);
+  labels.replaceChildren();
+  Array.from({ length: 12 }, (_, index) => index).forEach((dialIndex) => {
+    const point = clockPoint(174, dialIndex * 30);
+    const label = makeSvgElement("text", {
+      class: "clock-hour-label",
+      x: point.x,
+      y: point.y,
+    });
+    label.textContent = String(dialIndex || 12);
+    labels.append(label);
   });
+
+  marker.hidden = !isToday;
+  if (!marker.hidden) {
+    const point = clockPoint(134, dialHour * 30);
+    marker.setAttribute("cx", String(point.x));
+    marker.setAttribute("cy", String(point.y));
+  }
+
+  clock.setAttribute(
+    "aria-label",
+    isToday
+      ? `${dateElement.textContent} 12 saatlik saat planı; gerçek saat ${hourLabel}; şimdi ve sonraki 12 saat; haftalık plan aralığı 06:00–24:00`
+      : `${dateElement.textContent} 12 saatlik saat planı; 06:00–18:00 aralığı; haftalık plan aralığı 06:00–24:00`,
+  );
+}
+
+function renderNotes() {
+  document.querySelector("#overview-notes").value = state.notes;
 }
 
 function renderFixedExpenses() {
@@ -696,6 +823,7 @@ function renderSchedule() {
         state.schedule[dayIndex][hourIndex] = nextSlot(state.schedule[dayIndex][hourIndex]);
         saveState("Haftalık plan güncellendi.");
         renderSchedule();
+        renderOverviewClock();
       });
       cell.append(button);
       row.append(cell);
@@ -778,8 +906,8 @@ async function deleteJob(job) {
 }
 
 function renderAll() {
-  renderSummary();
-  renderOverviewBudgets();
+  renderOverviewClock();
+  renderNotes();
   renderFinance();
   renderSchedule();
   renderJobs();
@@ -805,6 +933,24 @@ document.querySelectorAll(".nav-link").forEach((button) => {
 
 document.querySelectorAll("[data-go]").forEach((button) => {
   button.addEventListener("click", () => setView(button.dataset.go));
+});
+
+document.querySelector("#overview-prev-day").addEventListener("click", () => {
+  overviewDayOffset -= 1;
+  renderOverviewClock();
+});
+document.querySelector("#overview-next-day").addEventListener("click", () => {
+  overviewDayOffset += 1;
+  renderOverviewClock();
+});
+document.querySelector("#overview-today").addEventListener("click", () => {
+  overviewDayOffset = 0;
+  renderOverviewClock();
+});
+document.querySelector("#overview-notes-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  state.notes = event.currentTarget.elements.notes.value;
+  saveState("Notların kaydedildi.");
 });
 
 document.querySelector("#income-form").addEventListener("submit", (event) => {
@@ -896,7 +1042,7 @@ window.addEventListener("focus", () => {
       await remoteUserDataSaveQueue;
       await loadAccountData(client);
     })
-    .catch((error) => showNotice(`İlanlar yenilenemedi: ${error.message}`));
+    .catch((error) => showNotice(`Panel verileri yenilenemedi: ${error.message}`));
 });
 
 const accountDialog = document.querySelector("#account-dialog");
@@ -1012,6 +1158,15 @@ document.querySelector("#account-signout").addEventListener("click", async () =>
 });
 
 renderAll();
+function refreshOverviewClockAtMinuteBoundary() {
+  const now = new Date();
+  const delay = 60_000 - (now.getSeconds() * 1_000 + now.getMilliseconds());
+  window.setTimeout(() => {
+    renderOverviewClock();
+    refreshOverviewClockAtMinuteBoundary();
+  }, delay);
+}
+refreshOverviewClockAtMinuteBoundary();
 void initializeCloudJobs();
 if ("serviceWorker" in navigator && location.protocol !== "file:") {
   navigator.serviceWorker.register("./sw.js").catch(() => {

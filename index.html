@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f4ef">
-    <meta name="description" content="Finansını ve haftalık planını tek bir kişisel panelden yönet.">
+    <meta name="description" content="Günlük saat planını ve notlarını tek bir kişisel panelden yönet.">
     <title>Kişisel Alan</title>
     <link rel="manifest" href="./manifest.webmanifest">
     <link rel="icon" href="./icon.svg" type="image/svg+xml">
@@ -43,7 +43,7 @@
           <div>
             <p class="eyebrow">KİŞİSEL KONTROL PANELİN</p>
             <h1 id="page-title">Genel bakış</h1>
-            <p class="page-subtitle" id="page-subtitle">Finansını ve haftanı tek bir yerden takip et.</p>
+            <p class="page-subtitle" id="page-subtitle">Saat planını ve notlarını tek bir yerden takip et.</p>
           </div>
           <button class="device-badge account-button" id="account-button" type="button">
             <span class="account-status-dot" id="account-status-dot" aria-hidden="true"></span>
@@ -89,64 +89,65 @@
         </dialog>
 
         <section class="view" id="overview-view" aria-labelledby="overview-heading">
-          <div class="section-heading">
+          <div class="section-heading overview-intro">
             <div>
-              <p class="eyebrow">AYLIK DURUM</p>
-              <h2 id="overview-heading">Paran nereye gidiyor?</h2>
+              <p class="eyebrow">GÜNLÜK PLANIN</p>
+              <h2 id="overview-heading">Saat planın</h2>
             </div>
-            <button class="text-button" type="button" data-go="finance">Finansını düzenle <span aria-hidden="true">→</span></button>
-          </div>
-          <div class="summary-grid">
-            <article class="summary-card summary-card--accent">
-              <span class="summary-label">Aylık gelir</span>
-              <strong class="summary-value" id="summary-income">—</strong>
-              <span class="summary-caption">Girdiğin toplam gelir</span>
-            </article>
-            <article class="summary-card">
-              <span class="summary-label">Sabit giderler</span>
-              <strong class="summary-value" id="summary-fixed">—</strong>
-              <span class="summary-caption">Kira, faturalar ve diğerleri</span>
-            </article>
-            <article class="summary-card">
-              <span class="summary-label">Değişken harcamalar</span>
-              <strong class="summary-value" id="summary-spent">—</strong>
-              <span class="summary-caption">Bu ay kaydettiğin harcamalar</span>
-            </article>
-            <article class="summary-card summary-card--dark">
-              <span class="summary-label">Kalan kullanılabilir</span>
-              <strong class="summary-value" id="summary-available">—</strong>
-              <span class="summary-caption">Gelir − sabit giderler − harcamalar</span>
-            </article>
           </div>
 
           <div class="overview-grid">
-            <article class="panel">
+            <section class="panel day-planner-panel" aria-labelledby="day-planner-heading">
               <div class="panel-heading">
                 <div>
-                  <p class="eyebrow">BÜTÇE DAĞILIMI</p>
-                  <h2>Aylık bütçe planın</h2>
+                  <p class="eyebrow">SAAT PLANI</p>
+                  <h2 id="day-planner-heading">Günün akışı</h2>
                 </div>
-                <button class="text-button" type="button" data-go="finance">Tümünü gör <span aria-hidden="true">→</span></button>
+                <div class="day-navigation" aria-label="Gün seç">
+                  <button class="icon-button day-nav-button" id="overview-prev-day" type="button" aria-label="Önceki gün">‹</button>
+                  <time class="day-navigation-label" id="overview-day-label"></time>
+                  <button class="icon-button day-nav-button" id="overview-next-day" type="button" aria-label="Sonraki gün">›</button>
+                  <button class="text-button today-button" id="overview-today" type="button" hidden>Bugün</button>
+                </div>
               </div>
-              <p class="muted-copy">Kategorilere ayırdığın tutarlar ve harcamaların.</p>
-              <div class="compact-budgets" id="overview-budgets"></div>
-            </article>
-            <article class="panel weekly-preview">
+              <div class="day-clock-layout">
+                <svg class="day-clock" id="overview-clock" viewBox="-24 -24 368 368" role="img" aria-label="Günün saat planı">
+                  <title>Günün saat planı</title>
+                  <g id="overview-clock-slots"></g>
+                  <circle class="clock-face" cx="160" cy="160" r="96"></circle>
+                  <g id="overview-clock-ticks"></g>
+                  <g id="overview-clock-labels"></g>
+                  <line class="clock-hand clock-hand--hour" id="overview-hour-hand" x1="160" y1="160" x2="160" y2="128"></line>
+                  <line class="clock-hand clock-hand--minute" id="overview-minute-hand" x1="160" y1="160" x2="160" y2="109"></line>
+                  <circle class="clock-center" cx="160" cy="160" r="4"></circle>
+                  <circle class="clock-time-marker" id="overview-time-marker" r="7" hidden></circle>
+                </svg>
+                <div class="day-clock-details">
+                  <div class="clock-time-readout">
+                    <time id="overview-current-time" class="clock-time" aria-live="off"></time>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel notes-panel" aria-labelledby="notes-heading">
               <div class="panel-heading">
                 <div>
-                  <p class="eyebrow">HAFTALIK PLAN</p>
-                  <h2>Haftanı düzenle</h2>
+                  <p class="eyebrow">AKLINDAN GEÇENLER</p>
+                  <h2 id="notes-heading">Notlar</h2>
                 </div>
-                <span class="round-icon" aria-hidden="true">↗</span>
               </div>
-              <p class="muted-copy">06:00–24:00 arasındaki saatlerini boş, meşgul veya planlanmamış olarak işaretle.</p>
-              <div class="week-days" aria-label="Haftanın günleri">
-                <span>Pzt</span><span>Sal</span><span>Çar</span><span>Per</span><span>Cum</span><span>Cmt</span><span>Paz</span>
-              </div>
-              <button class="button button-secondary button-full" type="button" data-go="weekly">Haftalık plana git <span aria-hidden="true">→</span></button>
-            </article>
+              <form id="overview-notes-form" class="notes-form">
+                <label class="sr-only" for="overview-notes">Notlarını yaz</label>
+                <textarea id="overview-notes" name="notes" rows="10" placeholder="Aklındaki şeyleri buraya bırak..."></textarea>
+                <div class="notes-footer">
+                  <p class="muted-copy">Kaydettiğinde bu cihazda saklanır; giriş yaptıysan hesabınla eşitlenir.</p>
+                  <button class="button button-primary" type="submit">Notları kaydet</button>
+                </div>
+              </form>
+            </section>
           </div>
-          <p class="privacy-note"><span aria-hidden="true">◉</span> Giriş yaptığında finansın, haftalık planın ve iş ilanların Supabase hesabınla eşitlenir.</p>
+          <p class="privacy-note"><span aria-hidden="true">◉</span> Giriş yaptığında notların ve haftalık planın Supabase hesabınla eşitlenir.</p>
         </section>
 
         <section class="view" id="finance-view" aria-labelledby="finance-heading" hidden>
