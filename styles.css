@@ -406,13 +406,8 @@ h2 {
 
 .day-clock-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  gap: 18px;
-}
-
-.day-clock-layout > * {
-  min-width: 0;
 }
 
 .day-clock {
@@ -491,26 +486,6 @@ h2 {
   stroke: #fff;
   stroke-width: 3;
   pointer-events: none;
-}
-
-.day-clock-details {
-  display: grid;
-  align-content: center;
-  gap: 13px;
-}
-
-.clock-time-readout {
-  display: grid;
-  justify-items: center;
-}
-
-.clock-time {
-  color: var(--green-deep);
-  font-family: "Manrope", sans-serif;
-  font-size: clamp(48px, 6vw, 72px);
-  font-weight: 700;
-  letter-spacing: -2px;
-  line-height: 1.05;
 }
 
 .notes-panel {
@@ -1525,16 +1500,8 @@ h2 {
     align-self: flex-start;
   }
 
-  .day-clock-layout {
-    grid-template-columns: 1fr;
-  }
-
   .day-clock {
     width: min(100%, 330px);
-  }
-
-  .day-clock-details {
-    gap: 10px;
   }
 
   .notes-footer {

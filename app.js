@@ -19,11 +19,11 @@ const JOB_STATUSES = {
   offer: "Teklif",
   rejected: "Olumsuz",
 };
-const VIEW_COPY = {
-  overview: ["Genel bakış", "Saat planını ve notlarını tek bir yerden takip et."],
-  finance: ["Finans", "Gelirini, sabit giderlerini ve aylık bütçeni düzenle."],
-  weekly: ["Haftalık plan", "Boş ve meşgul zamanlarını tek bir tabloda gör."],
-  jobs: ["İş ilanları", "İlanlarını ve başvuru sürecini takip et."],
+const VIEW_TITLES = {
+  overview: "Genel bakış",
+  finance: "Finans",
+  weekly: "Haftalık plan",
+  jobs: "İş ilanları",
 };
 const makeEmptySchedule = () => DAYS.map(() => Array(18).fill(null));
 
@@ -474,7 +474,6 @@ function renderOverviewClock() {
   const windowStartHour = isToday ? hour : 6;
   const hourLabel = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
   const dialHour = hour % 12 + minute / 60;
-  const timeElement = document.querySelector("#overview-current-time");
   const dateElement = document.querySelector("#overview-day-label");
   const todayButton = document.querySelector("#overview-today");
   const clock = document.querySelector("#overview-clock");
@@ -483,8 +482,6 @@ function renderOverviewClock() {
   const labels = document.querySelector("#overview-clock-labels");
   const marker = document.querySelector("#overview-time-marker");
 
-  timeElement.textContent = hourLabel;
-  timeElement.dateTime = now.toISOString();
   dateElement.textContent = new Intl.DateTimeFormat("tr-TR", {
     weekday: "long",
     day: "numeric",
@@ -914,7 +911,7 @@ function renderAll() {
 }
 
 function setView(viewName) {
-  if (!VIEW_COPY[viewName]) return;
+  if (!VIEW_TITLES[viewName]) return;
   document.querySelectorAll(".view").forEach((view) => {
     view.hidden = view.id !== `${viewName}-view`;
   });
@@ -923,8 +920,7 @@ function setView(viewName) {
     link.classList.toggle("is-active", active);
     link.setAttribute("aria-current", active ? "page" : "false");
   });
-  document.querySelector("#page-title").textContent = VIEW_COPY[viewName][0];
-  document.querySelector("#page-subtitle").textContent = VIEW_COPY[viewName][1];
+  document.querySelector("#page-title").textContent = VIEW_TITLES[viewName];
 }
 
 document.querySelectorAll(".nav-link").forEach((button) => {
