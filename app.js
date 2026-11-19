@@ -2,6 +2,7 @@ import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "./supabase-config.js";
 
 const STORAGE_KEY = "personal-area-v1";
 const DAYS = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
+const DAY_SHORT_NAMES = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const LEGACY_CATEGORY_NAMES = {
   groceries: "Market & yemek",
@@ -22,7 +23,7 @@ const JOB_STATUSES = {
 const VIEW_TITLES = {
   overview: "Genel bakış",
   finance: "Finans",
-  weekly: "Haftalık plan",
+  weekly: "Haftalık Plan",
   jobs: "İş ilanları",
 };
 const makeEmptySchedule = () => DAYS.map(() => Array(18).fill(null));
@@ -833,10 +834,14 @@ function renderSchedule() {
   const headerRow = document.createElement("tr");
   headerRow.append(makeElement("th", "", "Saat"));
 
-  DAYS.forEach((day) => {
+  // Show this week's dates (Monday first) under the short day names.
+  const today = new Date();
+  const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - ((today.getDay() + 6) % 7));
+  DAYS.forEach((day, dayIndex) => {
+    const date = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + dayIndex);
     const th = document.createElement("th");
-    th.append(document.createTextNode(day.slice(0, 3)));
-    th.append(makeElement("span", "", day));
+    th.append(document.createTextNode(DAY_SHORT_NAMES[dayIndex]));
+    th.append(makeElement("span", "", date.toLocaleDateString("tr-TR", { day: "numeric", month: "short" })));
     headerRow.append(th);
   });
   head.append(headerRow);
