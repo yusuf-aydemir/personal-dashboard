@@ -1799,6 +1799,20 @@ function refreshOverviewClockAtMinuteBoundary() {
 refreshOverviewClockAtMinuteBoundary();
 void initializeCloudJobs();
 if ("serviceWorker" in navigator && location.protocol !== "file:") {
+  // The service worker serves cached files first, so a new version is only
+  // downloaded in the background. When it takes over, reload once so the new
+  // version shows right away instead of on the next launch.
+  const hadController = Boolean(navigator.serviceWorker.controller);
+  let reloadingForUpdate = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!hadController || reloadingForUpdate) return;
+    if (document.querySelector("dialog[open]") || paintSession) {
+      showNotice("Uygulamanın yeni sürümü hazır. Görmek için sayfayı yenile.");
+      return;
+    }
+    reloadingForUpdate = true;
+    location.reload();
+  });
   navigator.serviceWorker.register("./sw.js").catch(() => {
     showNotice("Uygulama çevrimdışı kullanım için hazırlanamadı; internet bağlantısı gerekir.");
   });
