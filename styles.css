@@ -23,7 +23,7 @@ body {
   margin: 0;
   background: var(--page);
   color: var(--ink);
-  font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   font-size: 14px;
   line-height: 1.5;
 }
@@ -70,7 +70,6 @@ select:focus-visible,
   gap: 11px;
   margin: 0 0 60px 4px;
   color: var(--ink);
-  font-family: "Manrope", sans-serif;
   font-size: 16px;
   font-weight: 800;
   letter-spacing: -0.5px;
@@ -142,17 +141,6 @@ select:focus-visible,
   font-weight: 600;
 }
 
-.sidebar-bottom {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  margin-top: auto;
-  padding: 13px 10px;
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.privacy-dot,
 .account-status-dot {
   width: 7px;
   height: 7px;
@@ -160,7 +148,6 @@ select:focus-visible,
   border-radius: 50%;
 }
 
-.privacy-dot,
 .account-status-dot.is-signed-in {
   background: var(--green);
 }
@@ -172,15 +159,15 @@ select:focus-visible,
 .main-content {
   width: min(100% - 242px, 1440px);
   margin-left: 242px;
-  padding: 47px clamp(24px, 5vw, 76px) 25px;
+  padding: 40px clamp(24px, 5vw, 64px) 32px;
 }
 
 .topbar {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 24px;
-  margin-bottom: 39px;
+  margin-bottom: 32px;
 }
 
 .topbar .eyebrow {
@@ -197,11 +184,10 @@ p {
 h1,
 h2,
 h3 {
-  font-family: "Manrope", "DM Sans", sans-serif;
 }
 
 h1 {
-  margin-bottom: 5px;
+  margin-bottom: 0;
   font-size: clamp(26px, 3vw, 34px);
   font-weight: 700;
   letter-spacing: -1.25px;
@@ -367,16 +353,13 @@ h2 {
 
 .overview-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
-  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 24px;
 }
 
 .overview-grid > * {
   min-width: 0;
-}
-
-.overview-intro {
-  margin-bottom: 16px;
 }
 
 .day-navigation {
@@ -391,9 +374,9 @@ h2 {
 }
 
 .day-navigation-label {
-  min-width: 155px;
-  color: #50564e;
-  font-size: 11px;
+  min-width: 150px;
+  color: var(--muted);
+  font-size: 13px;
   font-weight: 600;
   text-align: center;
   text-transform: capitalize;
@@ -404,15 +387,20 @@ h2 {
   white-space: nowrap;
 }
 
+.day-planner-panel {
+  display: flex;
+  flex-direction: column;
+}
+
 .day-clock-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: center;
+  flex: 1;
+  place-items: center;
 }
 
 .day-clock {
   display: block;
-  width: min(100%, 320px);
+  width: min(100%, 340px);
   margin-inline: auto;
   overflow: visible;
 }
@@ -497,14 +485,14 @@ h2 {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .notes-form textarea {
   width: 100%;
-  min-height: 240px;
+  min-height: 280px;
   flex: 1;
-  padding: 12px;
+  padding: 16px;
   border: 1px solid var(--line);
   border-radius: 9px;
   background: var(--surface-muted);
@@ -517,8 +505,8 @@ h2 {
 .notes-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: flex-end;
+  gap: 16px;
 }
 
 .notes-footer .muted-copy {
@@ -533,7 +521,7 @@ h2 {
 }
 
 .panel {
-  padding: 22px;
+  padding: 24px;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--surface);
@@ -541,8 +529,9 @@ h2 {
 }
 
 .panel-heading {
+  min-height: 36px;
   align-items: center;
-  margin-bottom: 13px;
+  margin-bottom: 16px;
 }
 
 .panel-heading h2 {
@@ -705,7 +694,6 @@ h2 {
   outline: 0;
   background: transparent;
   color: var(--ink);
-  font-family: "Manrope", sans-serif;
   font-size: 19px;
   font-weight: 700;
 }
@@ -717,7 +705,6 @@ h2 {
 
 .panel-total {
   color: var(--green-deep);
-  font-family: "Manrope", sans-serif;
   font-size: 14px;
   font-weight: 700;
   white-space: nowrap;
@@ -803,7 +790,6 @@ h2 {
 
 .available-box strong {
   color: var(--green-deep);
-  font-family: "Manrope", sans-serif;
   font-size: 15px;
 }
 
@@ -881,7 +867,6 @@ h2 {
 .budget-values strong {
   display: block;
   color: #3d433b;
-  font-family: "Manrope", sans-serif;
   font-size: 12px;
 }
 
@@ -905,7 +890,6 @@ h2 {
   border-radius: 7px;
   background: #fff;
   color: #3d433b;
-  font-family: "Manrope", sans-serif;
   font-size: 12px;
   font-weight: 700;
   text-align: right;
@@ -1305,17 +1289,6 @@ h2 {
   background: #e7afa3;
 }
 
-.app-footer {
-  margin-top: 28px;
-  color: #999b93;
-  font-size: 10px;
-  text-align: center;
-}
-
-.app-footer span {
-  padding: 0 4px;
-}
-
 .sr-only {
   position: absolute;
   overflow: hidden;
@@ -1346,6 +1319,12 @@ h2 {
   }
 }
 
+@media (max-width: 1000px) {
+  .overview-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 760px) {
   .sidebar {
     position: sticky;
@@ -1371,8 +1350,7 @@ h2 {
     font-size: 21px;
   }
 
-  .sidebar-label,
-  .sidebar-bottom {
+  .sidebar-label {
     display: none;
   }
 
@@ -1403,7 +1381,7 @@ h2 {
   }
 
   .topbar {
-    margin-bottom: 27px;
+    margin-bottom: 24px;
   }
 
   .device-badge {
@@ -1424,13 +1402,17 @@ h2 {
   }
 
   .overview-grid {
-    gap: 14px;
+    gap: 16px;
+  }
+
+  .panel {
+    padding: 16px;
   }
 
   .day-planner-panel .panel-heading {
     align-items: flex-start;
     flex-direction: column;
-    gap: 9px;
+    gap: 8px;
   }
 
   .budget-row {

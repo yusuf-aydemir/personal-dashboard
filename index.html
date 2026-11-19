@@ -32,18 +32,11 @@
             <span class="nav-icon" aria-hidden="true">▤</span> İş ilanları
           </button>
         </nav>
-        <div class="sidebar-bottom">
-          <span class="privacy-dot" aria-hidden="true"></span>
-          <span>Hesapla cihazlar arasında eşitle</span>
-        </div>
       </aside>
 
       <main class="main-content">
         <header class="topbar">
-          <div>
-            <p class="eyebrow">KİŞİSEL KONTROL PANELİN</p>
-            <h1 id="page-title">Genel bakış</h1>
-          </div>
+          <h1 id="page-title">Genel bakış</h1>
           <button class="device-badge account-button" id="account-button" type="button">
             <span class="account-status-dot" id="account-status-dot" aria-hidden="true"></span>
             <span id="account-label">Giriş yap</span>
@@ -87,20 +80,11 @@
           <button class="text-button account-signout" id="account-signout" type="button" hidden>Çıkış yap</button>
         </dialog>
 
-        <section class="view" id="overview-view" aria-labelledby="overview-heading">
-          <div class="section-heading overview-intro">
-            <div>
-              <p class="eyebrow">GÜNLÜK PLANIN</p>
-              <h2 id="overview-heading">Saat planın</h2>
-            </div>
-          </div>
-
+        <section class="view" id="overview-view" aria-labelledby="page-title">
           <div class="overview-grid">
             <section class="panel day-planner-panel" aria-labelledby="day-planner-heading">
               <div class="panel-heading">
-                <div>
-                  <h2 id="day-planner-heading">Günün akışı</h2>
-                </div>
+                <h2 id="day-planner-heading">Günün akışı</h2>
                 <div class="day-navigation" aria-label="Gün seç">
                   <button class="icon-button day-nav-button" id="overview-prev-day" type="button" aria-label="Önceki gün">‹</button>
                   <time class="day-navigation-label" id="overview-day-label"></time>
@@ -125,9 +109,7 @@
 
             <section class="panel notes-panel" aria-labelledby="notes-heading">
               <div class="panel-heading">
-                <div>
-                  <h2 id="notes-heading">Notlar</h2>
-                </div>
+                <h2 id="notes-heading">Notlar</h2>
               </div>
               <form id="overview-notes-form" class="notes-form">
                 <label class="sr-only" for="overview-notes">Notlarını yaz</label>
@@ -138,7 +120,6 @@
               </form>
             </section>
           </div>
-          <p class="privacy-note"><span aria-hidden="true">◉</span> Giriş yaptığında notların ve haftalık planın Supabase hesabınla eşitlenir.</p>
         </section>
 
         <section class="view" id="finance-view" aria-labelledby="finance-heading" hidden>
@@ -308,7 +289,6 @@
           </section>
         </section>
 
-        <footer class="app-footer">Kişisel Alan <span>·</span> Sade, sana ait bir başlangıç.</footer>
       </main>
     </div>
     <script type="module" src="./app.js"></script>
