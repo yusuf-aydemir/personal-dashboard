@@ -1,4 +1,4 @@
-const CACHE_NAME = "personal-area-v19";
+const CACHE_NAME = "personal-area-v20";
 const APP_FILES = [
   "./",
   "./index.html",
@@ -10,7 +10,9 @@ const APP_FILES = [
 ];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_FILES)));
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(
+    APP_FILES.map((file) => new Request(file, { cache: "reload" })),
+  )));
   self.skipWaiting();
 });
 
