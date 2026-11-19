@@ -37,8 +37,8 @@ import {
 } from "./dashboard.ts";
 
 const SERVER_INFO = {
-  name: "personal-dashboard",
-  version: "2.0.0",
+  name: "kisisel-alan",
+  version: "2.1.0",
 };
 
 const SUPPORTED_PROTOCOL_VERSIONS = new Set([
@@ -52,7 +52,7 @@ const TOOL_DEFINITIONS = [
   {
     name: "get_weekly_schedule",
     description:
-      "Kullanıcının haftalık planını Pazartesi-Pazar, 06:00-24:00 aralığında, etkinlik kategorilerini ve günlük en geç yatma saatlerini oku. Bu plan haftalık tekrarlanır.",
+      "Kişisel Alan: kullanıcının haftalık planını (takvimini/programını) Pazartesi-Pazar, 06:00-24:00 aralığında, etkinlik kategorilerini ve günlük en geç yatma saatlerini oku. Bu plan haftalık tekrarlanır.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -68,7 +68,7 @@ const TOOL_DEFINITIONS = [
   {
     name: "update_weekly_schedule",
     description:
-      "Haftalık planda yalnızca belirtilen gün ve saat aralıklarını ayarla. Plan haftalık tekrarlanır; saat aralığı başlangıç dahil, bitiş hariçtir. Yalnızca tam saatler 06:00-24:00 arasında kullanılabilir. Belirtilmeyen saatler değişmeden kalır. free=boş, busy=diğer meşgul, unplanned=planlanmadı, category=kullanıcının etkinlik kategorilerinden biri (ör. Gym, Yemek hazırlama; adını category alanına yaz). Kategori adlarını görmek için önce get_weekly_schedule kullan.",
+      "Kişisel Alan: kullanıcı planına, takvimine veya programına bir şey eklemek/değiştirmek istediğinde bunu kullan (Google/Apple Takvim değil). Haftalık planda yalnızca belirtilen gün ve saat aralıklarını ayarla. Plan haftalık tekrarlanır; saat aralığı başlangıç dahil, bitiş hariçtir. Yalnızca tam saatler 06:00-24:00 arasında kullanılabilir. Belirtilmeyen saatler değişmeden kalır. free=boş, busy=diğer meşgul, unplanned=planlanmadı, category=kullanıcının etkinlik kategorilerinden biri (ör. Gym, Yemek hazırlama; adını category alanına yaz). Kategori adlarını görmek için önce get_weekly_schedule kullan.",
     inputSchema: {
       type: "object",
       properties: {
@@ -124,7 +124,7 @@ const TOOL_DEFINITIONS = [
   {
     name: "set_bedtimes",
     description:
-      "Belirtilen günler için en geç yatağa girme saatini ayarla veya kaldır. Gece yarısından sonraki saat o günün gecesine aittir: Perşembe 00:30, Perşembe'yi Cuma'ya bağlayan gece demektir. Saat 18:00-05:59 arasında olmalı.",
+      "Kişisel Alan: belirtilen günler için en geç yatağa girme (yatma / uyku) saatini ayarla veya kaldır. Gece yarısından sonraki saat o günün gecesine aittir: Perşembe 00:30, Perşembe'yi Cuma'ya bağlayan gece demektir. Saat 18:00-05:59 arasında olmalı.",
     inputSchema: {
       type: "object",
       properties: {
@@ -154,7 +154,7 @@ const TOOL_DEFINITIONS = [
   {
     name: "add_activity_category",
     description:
-      "Haftalık plana yeni bir etkinlik kategorisi (ör. Ders, Yürüyüş) ekle. En fazla 8 kategori olabilir.",
+      "Kişisel Alan: haftalık plana yeni bir etkinlik kategorisi (ör. Ders, Yürüyüş) ekle. En fazla 8 kategori olabilir.",
     inputSchema: {
       type: "object",
       properties: {
@@ -956,7 +956,7 @@ Deno.serve(async (request) => {
         capabilities: { tools: { listChanged: false } },
         serverInfo: SERVER_INFO,
         instructions:
-          "Bu sunucu kullanıcının kişisel panelini yönetir: haftalık plan, notlar, iş ilanları ve finans. Haftalık plan değişiklikleri haftalık tekrarlanır ve yalnızca verilen saat aralıklarını etkiler. Kimlik (id) gerektiren işlemlerden önce ilgili okuma aracını çağır. Silme veya notların tamamını değiştirme işlemlerini yalnızca kullanıcı açıkça istediğinde yap.",
+          "Bu sunucu kullanıcının Kişisel Alan panelini yönetir: haftalık plan (takvimi/programı), etkinlik kategorileri (Gym, Yemek hazırlama…), en geç yatma saatleri, notlar, iş ilanları ve finans. Kullanıcı 'plan', 'takvim', 'program', 'panel', 'gym', 'yemek hazırlama', 'yatma saati', 'not', 'iş ilanı', 'harcama' veya 'bütçe' dediğinde HER ZAMAN bu sunucunun araçlarını kullan. Google Takvim, Apple Takvim veya başka bir takvim aracına etkinlik ekleme; bunu yalnızca kullanıcı açıkça 'Google Takvim' ya da 'Apple Takvim' derse yap. Haftalık plan değişiklikleri haftalık tekrarlanır ve yalnızca verilen saat aralıklarını etkiler. Kimlik (id) gerektiren işlemlerden önce ilgili okuma aracını çağır. Silme veya notların tamamını değiştirme işlemlerini yalnızca kullanıcı açıkça istediğinde yap.",
       },
     });
   }
