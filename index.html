@@ -80,6 +80,44 @@
           <button class="text-button account-signout" id="account-signout" type="button" hidden>Çıkış yap</button>
         </dialog>
 
+        <dialog class="account-dialog planner-dialog" id="category-dialog" aria-labelledby="category-dialog-heading">
+          <div class="account-dialog-heading">
+            <div>
+              <p class="eyebrow">HAFTALIK PLAN</p>
+              <h2 id="category-dialog-heading">Etkinlik kategorileri</h2>
+            </div>
+            <button class="icon-button" type="button" data-close-dialog aria-label="Kapat">×</button>
+          </div>
+          <div class="category-editor-list" id="category-editor-list"></div>
+          <form class="category-add-form" id="category-add-form">
+            <label for="category-name">Yeni kategori</label>
+            <input id="category-name" name="name" type="text" maxlength="30" placeholder="Örn. Ders" required>
+            <div class="color-picker" id="category-color-picker" role="radiogroup" aria-label="Kategori rengi"></div>
+            <button class="button button-primary" type="submit">Kategori ekle</button>
+          </form>
+        </dialog>
+
+        <dialog class="account-dialog planner-dialog" id="bedtime-dialog" aria-labelledby="bedtime-dialog-heading">
+          <div class="account-dialog-heading">
+            <div>
+              <p class="eyebrow">HAFTALIK PLAN</p>
+              <h2 id="bedtime-dialog-heading">En geç yatma saatleri</h2>
+            </div>
+            <button class="icon-button" type="button" data-close-dialog aria-label="Kapat">×</button>
+          </div>
+          <p class="muted-copy">18:00 ile 05:59 arasında bir saat seç. Gece yarısından sonraki saat o günün gecesine aittir: Perşembe 00:30, Perşembe'yi Cuma'ya bağlayan gece demektir.</p>
+          <form class="bedtime-form" id="bedtime-form">
+            <div class="bedtime-all">
+              <label for="bedtime-all">Tüm günler</label>
+              <input id="bedtime-all" type="time" step="300">
+              <button class="button button-secondary" id="bedtime-apply-all" type="button">Hepsine uygula</button>
+            </div>
+            <div class="bedtime-grid" id="bedtime-grid"></div>
+            <p class="form-error" id="bedtime-error" role="alert" hidden></p>
+            <button class="button button-primary" type="submit">Kaydet</button>
+          </form>
+        </dialog>
+
         <section class="view" id="overview-view" aria-labelledby="page-title">
           <div class="overview-grid">
             <section class="panel day-planner-panel" aria-labelledby="day-planner-heading">
@@ -105,6 +143,7 @@
                   <circle class="clock-time-marker" id="overview-time-marker" r="7" hidden></circle>
                 </svg>
               </div>
+              <div class="day-status" id="overview-day-status" aria-live="polite"></div>
             </section>
 
             <section class="panel notes-panel" aria-labelledby="notes-heading">
@@ -241,19 +280,16 @@
               <p class="eyebrow">HAFTALIK DÜZENİN</p>
               <h2 id="weekly-heading">Haftanı planla</h2>
             </div>
-            <div class="schedule-legend" aria-label="Plan durumu açıklaması">
-              <span><i class="legend-dot legend-dot--unset"></i> Planlanmadı</span>
-              <span><i class="legend-dot legend-dot--free"></i> Boş</span>
-              <span><i class="legend-dot legend-dot--busy"></i> Meşgul</span>
-            </div>
           </div>
           <section class="panel schedule-panel" aria-label="Haftalık saat planı">
-            <p class="schedule-hint">Her hücre bir saati gösterir. Değişiklikler otomatik kaydedilir.</p>
+            <div class="schedule-brush" id="schedule-brush" role="toolbar" aria-label="Boyama fırçası"></div>
+            <p class="schedule-hint">Bir fırça seç, saatlere dokun veya parmağını sürükle. Aynı renge tekrar dokunmak o saati temizler. Değişiklikler otomatik kaydedilir.</p>
             <div class="schedule-scroll" tabindex="0" aria-label="Yatay kaydırılabilir haftalık plan">
               <table class="schedule-table" id="schedule-table">
                 <caption class="sr-only">Pazartesiden pazara haftalık saat planı, 06:00–24:00</caption>
               </table>
             </div>
+            <div class="schedule-summary" id="schedule-summary" aria-live="polite"></div>
           </section>
         </section>
 

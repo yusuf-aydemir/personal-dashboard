@@ -27,6 +27,63 @@ const VIEW_TITLES = {
   jobs: "İş ilanları",
 };
 const makeEmptySchedule = () => DAYS.map(() => Array(18).fill(null));
+const FREE_COLOR = "#a7cfaf";
+const BUSY_COLOR = "#cac5bb";
+const ACTIVITY_COLORS = {
+  orange: { label: "Turuncu", hex: "#f2a65a" },
+  yellow: { label: "Sarı", hex: "#f2d36b" },
+  blue: { label: "Mavi", hex: "#92b9e6" },
+  pink: { label: "Pembe", hex: "#eeaac6" },
+  teal: { label: "Turkuaz", hex: "#82cdc3" },
+  purple: { label: "Mor", hex: "#b7a2ea" },
+  red: { label: "Kırmızı", hex: "#e7a198" },
+  brown: { label: "Kahverengi", hex: "#c8a27f" },
+};
+const DEFAULT_ACTIVITY_CATEGORIES = [
+  { id: "gym", name: "Gym", color: "orange" },
+  { id: "meal-prep", name: "Yemek hazırlama", color: "yellow" },
+];
+const MAX_ACTIVITY_CATEGORIES = 8;
+const CATEGORY_ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,39}$/;
+const BEDTIME_PATTERN = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
+const BRUSH_STORAGE_KEY = "personal-area-brush";
+const makeDefaultActivityCategories = () => DEFAULT_ACTIVITY_CATEGORIES.map((category) => ({ ...category }));
+const makeEmptyBedtimes = () => DAYS.map(() => null);
+
+// A slot is unplanned (null), free, busy ("Diğer meşgul") or an activity
+// category id such as "gym".
+function isValidSlotValue(slot) {
+  return slot === null || slot === "free" || slot === "busy"
+    || (typeof slot === "string" && CATEGORY_ID_PATTERN.test(slot));
+}
+
+// Latest bedtimes run from 18:00 to 05:59; a time after midnight belongs to
+// the night that starts on that day.
+function isValidBedtime(value) {
+  if (typeof value !== "string" || !BEDTIME_PATTERN.test(value)) return false;
+  const hour = Number(value.slice(0, 2));
+  return hour >= 18 || hour < 6;
+}
+
+function isValidActivityCategories(value) {
+  return Array.isArray(value)
+    && value.length <= MAX_ACTIVITY_CATEGORIES
+    && value.every((category) => category
+      && typeof category.id === "string"
+      && CATEGORY_ID_PATTERN.test(category.id)
+      && category.id !== "free"
+      && category.id !== "busy"
+      && typeof category.name === "string"
+      && category.name.trim().length > 0
+      && category.name.length <= 30
+      && Object.hasOwn(ACTIVITY_COLORS, category.color));
+}
+
+function isValidBedtimes(value) {
+  return Array.isArray(value)
+    && value.length === DAYS.length
+    && value.every((time) => time === null || isValidBedtime(time));
+}
 
 function createDefaultState() {
   return {
@@ -37,6 +94,8 @@ function createDefaultState() {
     categories: [],
     jobs: [],
     schedule: makeEmptySchedule(),
+    activityCategories: makeDefaultActivityCategories(),
+    bedtimes: makeEmptyBedtimes(),
     notes: "",
   };
 }
@@ -91,11 +150,13 @@ function isValidState(value) {
         && Number.isFinite(job.createdAt)
         && Number.isFinite(job.updatedAt))))
     && (value.notes === undefined || typeof value.notes === "string")
+    && (value.activityCategories === undefined || isValidActivityCategories(value.activityCategories))
+    && (value.bedtimes === undefined || isValidBedtimes(value.bedtimes))
     && Array.isArray(value.schedule)
     && value.schedule.length === DAYS.length
     && value.schedule.every((day) => Array.isArray(day)
       && day.length === 18
-      && day.every((slot) => slot === null || slot === "free" || slot === "busy"));
+      && day.every(isValidSlotValue));
 }
 
 function loadState() {
@@ -119,6 +180,8 @@ function loadState() {
       categories: parsed.categories ?? [],
       jobs: parsed.jobs ?? [],
       notes: parsed.notes ?? defaults.notes,
+      activityCategories: parsed.activityCategories ?? defaults.activityCategories,
+      bedtimes: parsed.bedtimes ?? defaults.bedtimes,
       expenses: parsed.expenses.map((expense) => ({
         ...expense,
         categoryName: expense.categoryName || LEGACY_CATEGORY_NAMES[expense.category] || "Kaldırılmış kategori",
@@ -241,6 +304,8 @@ function normalizeRemoteData(data, fallbackNotes = "") {
     currency: CURRENCY_SYMBOLS[data.currency] ? data.currency : "TRY",
     categories: data.categories ?? [],
     notes: data.notes ?? fallbackNotes,
+    activityCategories: data.activityCategories ?? makeDefaultActivityCategories(),
+    bedtimes: data.bedtimes ?? makeEmptyBedtimes(),
     expenses: data.expenses.map((expense) => ({
       ...expense,
       categoryName: expense.categoryName || LEGACY_CATEGORY_NAMES[expense.category] || "Kaldırılmış kategori",
@@ -547,9 +612,10 @@ function renderOverviewClock() {
     const isOutsideSchedule = hourOfDay < 6;
     const value = isOutsideSchedule ? null : state.schedule[slotDayIndex][hourOfDay - 6];
     const segment = makeSvgElement("path", {
-      class: `clock-segment clock-segment--${isOutsideSchedule ? "outside" : value ?? "unplanned"}`,
+      class: `clock-segment clock-segment--${isOutsideSchedule ? "outside" : value === null ? "unplanned" : "filled"}`,
       d: scheduleSegmentPath(hourOfDay % 12),
     });
+    if (!isOutsideSchedule && value !== null) segment.style.fill = slotColor(value);
     const title = makeSvgElement("title");
     const period = `${formatScheduleHour(hourOfDay)}–${formatScheduleHour(hourOfDay + 1)}`;
     title.textContent = isOutsideSchedule
@@ -559,6 +625,32 @@ function renderOverviewClock() {
     segment.append(title);
     slots.append(segment);
   }
+
+  // Mark the latest bedtime if it falls inside the 12 hours on the dial.
+  const bedtimeCandidates = [
+    { dayIndex, offsetHours: 18 },
+    { dayIndex: (dayIndex + 6) % DAYS.length, offsetHours: -6 },
+  ];
+  bedtimeCandidates.forEach((candidate) => {
+    const bedtime = state.bedtimes[candidate.dayIndex];
+    if (!bedtime) return;
+    const bedtimeHour = candidate.offsetHours + nightMinutes(bedtime) / 60;
+    if (bedtimeHour < windowStartHour || bedtimeHour >= windowStartHour + 12) return;
+    const angle = (bedtimeHour % 12) * 30;
+    const inner = clockPoint(118, angle);
+    const outer = clockPoint(151, angle);
+    const line = makeSvgElement("line", {
+      class: "clock-bedtime",
+      x1: inner.x,
+      y1: inner.y,
+      x2: outer.x,
+      y2: outer.y,
+    });
+    const title = makeSvgElement("title");
+    title.textContent = `En geç yatma ${bedtime}`;
+    line.append(title);
+    slots.append(line);
+  });
 
   ticks.replaceChildren();
   for (let tickIndex = 0; tickIndex < 60; tickIndex += 1) {
@@ -587,6 +679,8 @@ function renderOverviewClock() {
     label.textContent = String(dialIndex || 12);
     labels.append(label);
   });
+
+  renderDayStatus(dayIndex, isToday, now);
 
   marker.hidden = !isToday;
   if (!marker.hidden) {
@@ -816,32 +910,169 @@ function renderFinance() {
   renderExpenseHistory();
 }
 
-function describeSlot(value) {
-  if (value === "free") return "Boş";
-  if (value === "busy") return "Meşgul";
-  return "Planlanmadı";
+function findActivityCategory(id) {
+  return state.activityCategories.find((category) => category.id === id);
 }
 
-function nextSlot(value) {
-  if (value === null) return "free";
-  if (value === "free") return "busy";
-  return null;
+function describeSlot(value) {
+  if (value === null) return "Planlanmadı";
+  if (value === "free") return "Boş";
+  if (value === "busy") return "Diğer meşgul";
+  return findActivityCategory(value)?.name ?? "Kaldırılmış kategori";
+}
+
+function slotColor(value) {
+  if (value === null) return "";
+  if (value === "free") return FREE_COLOR;
+  if (value === "busy") return BUSY_COLOR;
+  return ACTIVITY_COLORS[findActivityCategory(value)?.color]?.hex ?? BUSY_COLOR;
+}
+
+function formatHourRange(startHour, endHour) {
+  return `${formatScheduleHour(startHour)}–${formatScheduleHour(endHour)}`;
+}
+
+// Minutes after 18:00 of the evening the night starts on.
+function nightMinutes(time) {
+  const [hour, minute] = time.split(":").map(Number);
+  return ((hour + 6) % 24) * 60 + minute;
+}
+
+function formatNightMinutes(minutes) {
+  const total = (Math.round(minutes) + 18 * 60) % (24 * 60);
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+function formatDuration(totalMinutes) {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (!hours) return `${minutes} dk`;
+  return minutes ? `${hours} sa ${minutes} dk` : `${hours} sa`;
+}
+
+function currentWeekDates() {
+  const today = new Date();
+  const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - ((today.getDay() + 6) % 7));
+  return DAYS.map((_, dayIndex) => new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + dayIndex));
+}
+
+function readStoredBrush() {
+  try {
+    return localStorage.getItem(BRUSH_STORAGE_KEY) || "gym";
+  } catch {
+    return "gym";
+  }
+}
+
+let selectedBrush = readStoredBrush();
+let paintSession = null;
+
+function brushOptions() {
+  return [
+    ...state.activityCategories.map((category) => ({
+      key: category.id,
+      label: category.name,
+      color: ACTIVITY_COLORS[category.color].hex,
+    })),
+    { key: "busy", label: "Diğer meşgul", color: BUSY_COLOR },
+    { key: "free", label: "Boş", color: FREE_COLOR },
+    { key: "clear", label: "Sil", color: "" },
+  ];
+}
+
+function selectBrush(key) {
+  selectedBrush = key;
+  try {
+    localStorage.setItem(BRUSH_STORAGE_KEY, key);
+  } catch {
+    // Remembering the brush is only a convenience.
+  }
+  renderScheduleBrush();
+}
+
+function renderScheduleBrush() {
+  const bar = document.querySelector("#schedule-brush");
+  const options = brushOptions();
+  if (!options.some((option) => option.key === selectedBrush)) selectedBrush = options[0].key;
+
+  bar.replaceChildren(makeElement("span", "brush-label", "Fırça:"));
+  options.forEach((option) => {
+    const button = makeElement("button", "brush-chip");
+    button.type = "button";
+    button.setAttribute("aria-pressed", String(selectedBrush === option.key));
+    if (option.color) {
+      const dot = makeElement("i", "brush-dot");
+      dot.style.background = option.color;
+      button.append(dot);
+    } else {
+      button.append(makeElement("span", "brush-clear", "✕"));
+    }
+    button.append(document.createTextNode(option.label));
+    button.addEventListener("click", () => selectBrush(option.key));
+    bar.append(button);
+  });
+
+  const manageButton = makeElement("button", "brush-chip brush-chip--manage", "+ Kategori");
+  manageButton.type = "button";
+  manageButton.addEventListener("click", openCategoryDialog);
+  const bedtimeButton = makeElement("button", "brush-chip brush-chip--bedtime", "Yatma saatleri 🌙");
+  bedtimeButton.type = "button";
+  bedtimeButton.addEventListener("click", () => openBedtimeDialog());
+  bar.append(manageButton, bedtimeButton);
+}
+
+function slotTitle(dayIndex, hourIndex, value) {
+  return `${DAYS[dayIndex]} ${formatHourRange(hourIndex + 6, hourIndex + 7)} · ${describeSlot(value)}`;
+}
+
+function paintSlot(button, value) {
+  const dayIndex = Number(button.dataset.day);
+  const hourIndex = Number(button.dataset.hour);
+  if (state.schedule[dayIndex][hourIndex] === value) return;
+  state.schedule[dayIndex][hourIndex] = value;
+  paintSession.changed = true;
+  button.style.background = slotColor(value);
+  button.classList.toggle("is-filled", value !== null);
+  button.title = slotTitle(dayIndex, hourIndex, value);
+}
+
+function brushValueFor(current) {
+  const brushValue = selectedBrush === "clear" ? null : selectedBrush;
+  // Tapping a slot that already has the brush colour clears it.
+  return current === brushValue ? null : brushValue;
+}
+
+function finishPainting() {
+  if (!paintSession) return;
+  const { changed } = paintSession;
+  paintSession = null;
+  if (!changed) return;
+  saveState("Haftalık plan güncellendi.");
+  renderSchedule();
+  renderOverviewClock();
 }
 
 function renderSchedule() {
+  renderScheduleBrush();
   const table = document.querySelector("#schedule-table");
+  const caption = table.querySelector("caption");
   const head = document.createElement("thead");
   const headerRow = document.createElement("tr");
   headerRow.append(makeElement("th", "", "Saat"));
 
-  // Show this week's dates (Monday first) under the short day names.
-  const today = new Date();
-  const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - ((today.getDay() + 6) % 7));
-  DAYS.forEach((day, dayIndex) => {
-    const date = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + dayIndex);
-    const th = document.createElement("th");
+  const todayIndex = (new Date().getDay() + 6) % DAYS.length;
+  currentWeekDates().forEach((date, dayIndex) => {
+    const th = makeElement("th", dayIndex === todayIndex ? "is-today" : "");
     th.append(document.createTextNode(DAY_SHORT_NAMES[dayIndex]));
     th.append(makeElement("span", "", date.toLocaleDateString("tr-TR", { day: "numeric", month: "short" })));
+    const bedtime = state.bedtimes[dayIndex];
+    const bedtimeButton = makeElement("button", `bedtime-chip${bedtime ? "" : " bedtime-chip--empty"}`, bedtime ? `${bedtime} 🌙` : "+ 🌙");
+    bedtimeButton.type = "button";
+    bedtimeButton.setAttribute("aria-label", bedtime
+      ? `${DAYS[dayIndex]} en geç yatma saati ${bedtime}. Değiştir.`
+      : `${DAYS[dayIndex]} için yatma saati ekle`);
+    bedtimeButton.addEventListener("click", () => openBedtimeDialog(dayIndex));
+    th.append(bedtimeButton);
     headerRow.append(th);
   });
   head.append(headerRow);
@@ -849,28 +1080,168 @@ function renderSchedule() {
   const body = document.createElement("tbody");
   for (let hourIndex = 0; hourIndex < 18; hourIndex += 1) {
     const row = document.createElement("tr");
-    row.append(makeElement("td", "", `${String(hourIndex + 6).padStart(2, "0")}:00`));
+    row.append(makeElement("td", "", formatScheduleHour(hourIndex + 6)));
 
     DAYS.forEach((day, dayIndex) => {
       const cell = document.createElement("td");
       const value = state.schedule[dayIndex][hourIndex];
-      const button = makeElement("button", `schedule-slot${value ? ` schedule-slot--${value}` : ""}`);
+      const button = makeElement("button", `schedule-slot${value !== null ? " is-filled" : ""}`);
       button.type = "button";
-      button.setAttribute("aria-label", `${day}, ${String(hourIndex + 6).padStart(2, "0")}:00–${String(hourIndex + 7).padStart(2, "0")}:00: ${describeSlot(value)}. Değiştirmek için dokun.`);
-      button.setAttribute("aria-pressed", String(value !== null));
-      button.title = `${day} ${String(hourIndex + 6).padStart(2, "0")}:00–${String(hourIndex + 7).padStart(2, "0")}:00 · ${describeSlot(value)}`;
-      button.addEventListener("click", () => {
-        state.schedule[dayIndex][hourIndex] = nextSlot(state.schedule[dayIndex][hourIndex]);
-        saveState("Haftalık plan güncellendi.");
-        renderSchedule();
-        renderOverviewClock();
-      });
-      cell.append(button);
+      button.dataset.day = String(dayIndex);
+      button.dataset.hour = String(hourIndex);
+      button.style.background = slotColor(value);
+      button.title = slotTitle(dayIndex, hourIndex, value);
+      button.setAttribute("aria-label", `${slotTitle(dayIndex, hourIndex, value)}. Seçili fırçayla boyamak için dokun.`);
+
+      const bedtime = state.bedtimes[dayIndex];
+      const hour = hourIndex + 6;
+      if (bedtime && hour >= 18) {
+        const bedtimeMinute = nightMinutes(bedtime);
+        const slotStart = (hour - 18) * 60;
+        if (bedtimeMinute < slotStart + 60) {
+          if (bedtimeMinute <= slotStart) button.classList.add("is-after-bedtime");
+          if (bedtimeMinute >= slotStart) {
+            const line = makeElement("span", "bedtime-line");
+            line.style.top = `${((bedtimeMinute - slotStart) / 60) * 100}%`;
+            line.title = `${day} en geç yatma ${bedtime}`;
+            cell.classList.add("has-bedtime-line");
+            cell.append(line);
+          }
+        }
+      }
+      cell.prepend(button);
       row.append(cell);
     });
     body.append(row);
   }
-  table.replaceChildren(head, body);
+  table.replaceChildren(caption, head, body);
+  renderScheduleSummary();
+}
+
+function renderScheduleSummary() {
+  const summary = document.querySelector("#schedule-summary");
+  const hours = new Map();
+  state.schedule.flat().forEach((value) => {
+    if (value !== null) hours.set(value, (hours.get(value) ?? 0) + 1);
+  });
+  const items = [
+    ...state.activityCategories.map((category) => category.id),
+    "busy",
+    "free",
+    ...[...hours.keys()].filter((key) => key !== "busy" && key !== "free" && !findActivityCategory(key)),
+  ].filter((key, index, keys) => keys.indexOf(key) === index && (hours.get(key) ?? 0) > 0);
+
+  summary.replaceChildren();
+  items.forEach((key) => {
+    const item = makeElement("span", "summary-item");
+    const dot = makeElement("i", "brush-dot");
+    dot.style.background = slotColor(key);
+    item.append(dot, document.createTextNode(`${describeSlot(key)} `), makeElement("b", "", `${hours.get(key)} sa`));
+    summary.append(item);
+  });
+
+  const bedtimes = state.bedtimes.filter(Boolean);
+  if (bedtimes.length) {
+    const average = bedtimes.reduce((total, time) => total + nightMinutes(time), 0) / bedtimes.length;
+    const item = makeElement("span", "summary-item summary-item--bedtime");
+    item.append(document.createTextNode("Ortalama yatma: "), makeElement("b", "", `${formatNightMinutes(average)} 🌙`));
+    summary.append(item);
+  }
+  summary.hidden = summary.childElementCount === 0;
+}
+
+function dayBlocks(dayIndex) {
+  const blocks = [];
+  const day = state.schedule[dayIndex];
+  let start = 0;
+  while (start < day.length) {
+    let end = start + 1;
+    while (end < day.length && day[end] === day[start]) end += 1;
+    blocks.push({ value: day[start], startHour: start + 6, endHour: end + 6 });
+    start = end;
+  }
+  return blocks;
+}
+
+function isActivity(value) {
+  return value !== null && value !== "free";
+}
+
+function statusLine(label, value, startHour, endHour) {
+  const line = makeElement("p", "day-status-line");
+  const dot = makeElement("i", "brush-dot");
+  dot.style.background = slotColor(value);
+  line.append(
+    makeElement("span", "day-status-label", label),
+    dot,
+    makeElement("b", "", describeSlot(value)),
+    document.createTextNode(` ${formatHourRange(startHour, endHour)}`),
+  );
+  return line;
+}
+
+function renderDayStatus(dayIndex, isToday, now) {
+  const container = document.querySelector("#overview-day-status");
+  container.replaceChildren();
+  const blocks = dayBlocks(dayIndex);
+
+  if (isToday) {
+    const hour = now.getHours();
+    const current = hour >= 6 ? blocks.find((block) => block.startHour <= hour && hour < block.endHour) : undefined;
+    if (current && current.value !== null) {
+      container.append(statusLine("Şimdi", current.value, current.startHour, current.endHour));
+    }
+    const next = blocks.find((block) => block.startHour > hour && isActivity(block.value)
+      && block.value !== current?.value);
+    container.append(next
+      ? statusLine("Sıradaki", next.value, next.startHour, next.endHour)
+      : makeElement("p", "day-status-line day-status-line--muted", "Bugün için başka etkinlik yok."));
+  } else {
+    const activities = blocks.filter((block) => isActivity(block.value));
+    if (activities.length) {
+      activities.slice(0, 4).forEach((block) => {
+        container.append(statusLine("", block.value, block.startHour, block.endHour));
+      });
+    } else {
+      container.append(makeElement("p", "day-status-line day-status-line--muted", "Bu gün için etkinlik planlanmadı."));
+    }
+  }
+
+  // After midnight and before 06:00 the night that started yesterday counts.
+  const nightDayIndex = isToday && now.getHours() < 6 ? (dayIndex + 6) % DAYS.length : dayIndex;
+  const bedtime = state.bedtimes[nightDayIndex];
+  const card = makeElement("div", "bedtime-card");
+  if (!bedtime) {
+    const addButton = makeElement("button", "text-button", "En geç yatma saatini ekle 🌙");
+    addButton.type = "button";
+    addButton.addEventListener("click", () => openBedtimeDialog(nightDayIndex));
+    card.classList.add("bedtime-card--empty");
+    card.append(addButton);
+  } else if (isToday) {
+    const nowMinute = ((now.getHours() + 6) % 24) * 60 + now.getMinutes()
+      - (now.getHours() >= 6 && now.getHours() < 18 ? 24 * 60 : 0);
+    const remaining = nightMinutes(bedtime) - nowMinute;
+    if (remaining > 0) {
+      card.append(
+        makeElement("span", "bedtime-card-label", "Yatağa girmene"),
+        makeElement("strong", "", formatDuration(remaining)),
+        makeElement("span", "bedtime-card-note", `Bu gece en geç ${bedtime} 🌙`),
+      );
+    } else {
+      card.classList.add("bedtime-card--late");
+      card.append(
+        makeElement("span", "bedtime-card-label", "Yatma saatin geçti"),
+        makeElement("strong", "", `${formatDuration(-remaining)} geç`),
+        makeElement("span", "bedtime-card-note", `En geç ${bedtime} olacaktı 🌙`),
+      );
+    }
+  } else {
+    card.append(
+      makeElement("span", "bedtime-card-label", "O gece en geç"),
+      makeElement("strong", "", `${bedtime} 🌙`),
+    );
+  }
+  container.append(card);
 }
 
 function renderJobs() {
@@ -1195,6 +1566,225 @@ document.querySelector("#account-signout").addEventListener("click", async () =>
   } catch (error) {
     showNotice(`Çıkış yapılamadı: ${error.message}`);
   }
+});
+
+// ---------- weekly plan painting ----------
+const scheduleTable = document.querySelector("#schedule-table");
+scheduleTable.addEventListener("pointerdown", (event) => {
+  const button = event.target.closest(".schedule-slot");
+  if (!button || event.button > 0) return;
+  event.preventDefault();
+  const current = state.schedule[Number(button.dataset.day)][Number(button.dataset.hour)];
+  paintSession = { value: brushValueFor(current), changed: false, pointerId: event.pointerId };
+  paintSlot(button, paintSession.value);
+});
+document.addEventListener("pointermove", (event) => {
+  if (!paintSession || event.pointerId !== paintSession.pointerId) return;
+  const button = document.elementFromPoint(event.clientX, event.clientY)?.closest?.(".schedule-slot");
+  if (button) paintSlot(button, paintSession.value);
+});
+document.addEventListener("pointerup", finishPainting);
+document.addEventListener("pointercancel", finishPainting);
+// Keyboard activation (Enter/Space) arrives as a click without a pointer.
+scheduleTable.addEventListener("click", (event) => {
+  const button = event.target.closest(".schedule-slot");
+  if (!button || event.detail !== 0) return;
+  const current = state.schedule[Number(button.dataset.day)][Number(button.dataset.hour)];
+  paintSession = { value: brushValueFor(current), changed: false, pointerId: null };
+  paintSlot(button, paintSession.value);
+  finishPainting();
+});
+
+// ---------- activity categories ----------
+const categoryDialog = document.querySelector("#category-dialog");
+const bedtimeDialog = document.querySelector("#bedtime-dialog");
+let newCategoryColor = "blue";
+
+document.querySelectorAll("[data-close-dialog]").forEach((button) => {
+  button.addEventListener("click", () => button.closest("dialog").close());
+});
+
+function createCategoryId() {
+  const random = globalThis.crypto?.randomUUID?.() ?? Math.random().toString(16).slice(2);
+  return `c-${random.replace(/[^a-z0-9]/g, "").slice(0, 8)}`;
+}
+
+function sameCategoryName(left, right) {
+  return left.trim().toLocaleLowerCase("tr-TR") === right.trim().toLocaleLowerCase("tr-TR");
+}
+
+function categoryNameTaken(name, exceptId) {
+  return state.activityCategories.some((category) => category.id !== exceptId && sameCategoryName(category.name, name));
+}
+
+function saveActivityCategories(message) {
+  saveState(message);
+  renderAll();
+  renderCategoryEditor();
+}
+
+function renderColorPicker() {
+  const picker = document.querySelector("#category-color-picker");
+  picker.replaceChildren();
+  Object.entries(ACTIVITY_COLORS).forEach(([key, color]) => {
+    const swatch = makeElement("button", "color-swatch");
+    swatch.type = "button";
+    swatch.style.background = color.hex;
+    swatch.setAttribute("role", "radio");
+    swatch.setAttribute("aria-checked", String(newCategoryColor === key));
+    swatch.setAttribute("aria-label", color.label);
+    swatch.title = color.label;
+    swatch.addEventListener("click", () => {
+      newCategoryColor = key;
+      renderColorPicker();
+    });
+    picker.append(swatch);
+  });
+}
+
+function renderCategoryEditor() {
+  const list = document.querySelector("#category-editor-list");
+  list.replaceChildren();
+  state.activityCategories.forEach((category) => {
+    const row = makeElement("div", "category-editor-row");
+
+    const color = document.createElement("select");
+    color.className = "category-color-select";
+    color.setAttribute("aria-label", `${category.name} rengi`);
+    color.style.background = ACTIVITY_COLORS[category.color].hex;
+    Object.entries(ACTIVITY_COLORS).forEach(([key, value]) => {
+      const option = makeElement("option", "", value.label);
+      option.value = key;
+      option.selected = key === category.color;
+      color.append(option);
+    });
+    color.addEventListener("change", () => {
+      category.color = color.value;
+      saveActivityCategories("Kategori rengi güncellendi.");
+    });
+
+    const name = document.createElement("input");
+    name.type = "text";
+    name.maxLength = 30;
+    name.value = category.name;
+    name.setAttribute("aria-label", "Kategori adı");
+    name.addEventListener("change", () => {
+      const newName = name.value.trim();
+      if (!newName || categoryNameTaken(newName, category.id)) {
+        showNotice(newName ? `"${newName}" adında bir kategori zaten var.` : "Kategori adı boş bırakılamaz.");
+        name.value = category.name;
+        return;
+      }
+      category.name = newName;
+      saveActivityCategories("Kategori adı güncellendi.");
+    });
+
+    const remove = makeElement("button", "icon-button", "×");
+    remove.type = "button";
+    remove.setAttribute("aria-label", `${category.name} kategorisini sil`);
+    remove.addEventListener("click", () => {
+      const usedHours = state.schedule.flat().filter((value) => value === category.id).length;
+      const warning = usedHours
+        ? `"${category.name}" silinsin mi? Bu kategorideki ${usedHours} saat "Planlanmadı" olacak.`
+        : `"${category.name}" silinsin mi?`;
+      if (!window.confirm(warning)) return;
+      state.activityCategories = state.activityCategories.filter((item) => item.id !== category.id);
+      state.schedule = state.schedule.map((day) => day.map((value) => (value === category.id ? null : value)));
+      saveActivityCategories("Kategori silindi.");
+    });
+
+    row.append(color, name, remove);
+    list.append(row);
+  });
+  if (!state.activityCategories.length) {
+    list.append(makeElement("p", "muted-copy", "Henüz kategori yok. Aşağıdan ekleyebilirsin."));
+  }
+  const addForm = document.querySelector("#category-add-form");
+  const isFull = state.activityCategories.length >= MAX_ACTIVITY_CATEGORIES;
+  addForm.querySelectorAll("input, button").forEach((element) => {
+    element.disabled = isFull;
+  });
+  addForm.querySelector("label").textContent = isFull
+    ? `En fazla ${MAX_ACTIVITY_CATEGORIES} kategori olabilir`
+    : "Yeni kategori";
+}
+
+function openCategoryDialog() {
+  renderCategoryEditor();
+  renderColorPicker();
+  categoryDialog.showModal();
+}
+
+document.querySelector("#category-add-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const input = document.querySelector("#category-name");
+  const name = input.value.trim();
+  if (!name) return;
+  if (categoryNameTaken(name)) {
+    showNotice(`"${name}" adında bir kategori zaten var.`);
+    return;
+  }
+  if (state.activityCategories.length >= MAX_ACTIVITY_CATEGORIES) return;
+  const category = { id: createCategoryId(), name, color: newCategoryColor };
+  state.activityCategories = [...state.activityCategories, category];
+  input.value = "";
+  selectedBrush = category.id;
+  saveActivityCategories(`"${name}" kategorisi eklendi.`);
+});
+
+// ---------- bedtimes ----------
+function renderBedtimeForm() {
+  const grid = document.querySelector("#bedtime-grid");
+  grid.replaceChildren();
+  DAYS.forEach((day, dayIndex) => {
+    const id = `bedtime-day-${dayIndex}`;
+    const label = makeElement("label", "", day);
+    label.htmlFor = id;
+    const input = document.createElement("input");
+    input.type = "time";
+    input.step = "300";
+    input.id = id;
+    input.name = `day-${dayIndex}`;
+    input.value = state.bedtimes[dayIndex] ?? "";
+    const clear = makeElement("button", "icon-button", "×");
+    clear.type = "button";
+    clear.setAttribute("aria-label", `${day} yatma saatini kaldır`);
+    clear.addEventListener("click", () => {
+      input.value = "";
+    });
+    grid.append(label, input, clear);
+  });
+  document.querySelector("#bedtime-error").hidden = true;
+}
+
+function openBedtimeDialog(dayIndex) {
+  renderBedtimeForm();
+  bedtimeDialog.showModal();
+  if (dayIndex !== undefined) document.querySelector(`#bedtime-day-${dayIndex}`).focus();
+}
+
+document.querySelector("#bedtime-apply-all").addEventListener("click", () => {
+  const value = document.querySelector("#bedtime-all").value;
+  if (!value) return;
+  document.querySelectorAll("#bedtime-grid input").forEach((input) => {
+    input.value = value;
+  });
+});
+
+document.querySelector("#bedtime-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const error = document.querySelector("#bedtime-error");
+  const values = DAYS.map((_, dayIndex) => document.querySelector(`#bedtime-day-${dayIndex}`).value || null);
+  const invalidIndex = values.findIndex((value) => value !== null && !isValidBedtime(value));
+  if (invalidIndex >= 0) {
+    error.textContent = `${DAYS[invalidIndex]} için 18:00 ile 05:59 arasında bir saat seç.`;
+    error.hidden = false;
+    return;
+  }
+  state.bedtimes = values;
+  saveState("Yatma saatleri kaydedildi.");
+  renderAll();
+  bedtimeDialog.close();
 });
 
 renderAll();

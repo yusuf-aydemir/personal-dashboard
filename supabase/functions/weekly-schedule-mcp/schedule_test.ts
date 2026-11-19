@@ -1,6 +1,12 @@
 import {
+  addActivityCategory,
+  applyBedtimeChange,
   applyScheduleChanges,
+  DEFAULT_ACTIVITY_CATEGORIES,
+  formatSchedule,
+  isValidBedtime,
   isValidSchedule,
+  parseBedtimeChange,
   parseScheduleChanges,
   type Schedule,
 } from "./schedule.ts";
@@ -99,4 +105,55 @@ Deno.test("rejects out-of-range and overlapping changes", () => {
         { day: "Pazartesi", startHour: 9, endHour: 11, status: "busy" },
       ],
     }), "Overlapping intervals should be rejected.");
+});
+
+Deno.test("paints hours with an activity category by name", () => {
+  const schedule: Schedule = Array.from(
+    { length: 7 },
+    () => Array(18).fill(null),
+  );
+  const changes = parseScheduleChanges({
+    changes: [
+      { day: "Salı", startHour: 18, endHour: 20, status: "category", category: "gym" },
+    ],
+  }, DEFAULT_ACTIVITY_CATEGORIES);
+  const updated = applyScheduleChanges(schedule, changes);
+  assert(updated[1][12] === "gym" && updated[1][13] === "gym", "Gym should fill 18-20.");
+  assert(updated[1][14] === null, "20:00 should stay unplanned.");
+  assert(isValidSchedule(updated), "A schedule with category ids should be valid.");
+  assert(
+    formatSchedule(updated, DEFAULT_ACTIVITY_CATEGORIES, [null, "00:30", null, null, null, null, null])
+      .includes("Salı: 06:00–18:00 Planlanmadı, 18:00–20:00 Gym, 20:00–24:00 Planlanmadı · en geç yatma 00:30"),
+    "The formatted plan should name the category and bedtime.",
+  );
+  assertThrows(
+    () => parseScheduleChanges({
+      changes: [{ day: "Salı", startHour: 18, endHour: 20, status: "category", category: "Yüzme" }],
+    }, DEFAULT_ACTIVITY_CATEGORIES),
+    "An unknown category should be rejected.",
+  );
+  assertThrows(
+    () => parseScheduleChanges({
+      changes: [{ day: "Salı", startHour: 18, endHour: 20, status: "free", category: "Gym" }],
+    }),
+    "category without status=category should be rejected.",
+  );
+});
+
+Deno.test("validates and applies bedtimes", () => {
+  assert(isValidBedtime("23:30") && isValidBedtime("00:30") && isValidBedtime("05:59"), "Night times are valid.");
+  assert(!isValidBedtime("12:00") && !isValidBedtime("24:00") && !isValidBedtime("7:00"), "Day or malformed times are invalid.");
+  const change = parseBedtimeChange({ days: ["Pazartesi", "Cuma"], time: "01:30" });
+  const updated = applyBedtimeChange(Array(7).fill(null), change);
+  assert(updated[0] === "01:30" && updated[4] === "01:30" && updated[1] === null, "Only chosen days change.");
+  const cleared = applyBedtimeChange(updated, parseBedtimeChange({ days: ["Cuma"], time: null }));
+  assert(cleared[4] === null && cleared[0] === "01:30", "null clears a bedtime.");
+  assertThrows(() => parseBedtimeChange({ days: ["Pazartesi"], time: "14:00" }), "Afternoon bedtimes are rejected.");
+});
+
+Deno.test("adds activity categories with limits", () => {
+  const added = addActivityCategory(DEFAULT_ACTIVITY_CATEGORIES, " Ders ", "blue", "c-1");
+  assert(added.length === 3 && added[2].name === "Ders", "A new category is appended with a trimmed name.");
+  assertThrows(() => addActivityCategory(added, "GYM", "red", "c-2"), "Duplicate names are rejected.");
+  assertThrows(() => addActivityCategory(added, "Yürüyüş", "neon", "c-3"), "Unknown colors are rejected.");
 });

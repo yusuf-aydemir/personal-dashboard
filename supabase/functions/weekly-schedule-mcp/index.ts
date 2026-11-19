@@ -1,9 +1,16 @@
 import {
+  ACTIVITY_COLORS,
+  addActivityCategory,
+  applyBedtimeChange,
+  applyScheduleChanges,
   DAYS,
+  formatActivityCategories,
   formatSchedule,
   isValidSchedule,
+  parseBedtimeChange,
   parseScheduleChanges,
-  type Schedule,
+  readActivityCategories,
+  readBedtimes,
 } from "./schedule.ts";
 import {
   appendNote,
@@ -45,7 +52,7 @@ const TOOL_DEFINITIONS = [
   {
     name: "get_weekly_schedule",
     description:
-      "Kullanıcının haftalık planını Pazartesi-Pazar, 06:00-24:00 aralığında oku. Bu plan haftalık tekrarlanır.",
+      "Kullanıcının haftalık planını Pazartesi-Pazar, 06:00-24:00 aralığında, etkinlik kategorilerini ve günlük en geç yatma saatlerini oku. Bu plan haftalık tekrarlanır.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -61,7 +68,7 @@ const TOOL_DEFINITIONS = [
   {
     name: "update_weekly_schedule",
     description:
-      "Haftalık planda yalnızca belirtilen gün ve saat aralıklarını ayarla. Plan haftalık tekrarlanır; saat aralığı başlangıç dahil, bitiş hariçtir. Yalnızca tam saatler 06:00-24:00 arasında kullanılabilir. Belirtilmeyen saatler değişmeden kalır. free=boş, busy=meşgul, unplanned=planlanmadı.",
+      "Haftalık planda yalnızca belirtilen gün ve saat aralıklarını ayarla. Plan haftalık tekrarlanır; saat aralığı başlangıç dahil, bitiş hariçtir. Yalnızca tam saatler 06:00-24:00 arasında kullanılabilir. Belirtilmeyen saatler değişmeden kalır. free=boş, busy=diğer meşgul, unplanned=planlanmadı, category=kullanıcının etkinlik kategorilerinden biri (ör. Gym, Yemek hazırlama; adını category alanına yaz). Kategori adlarını görmek için önce get_weekly_schedule kullan.",
     inputSchema: {
       type: "object",
       properties: {
@@ -88,7 +95,16 @@ const TOOL_DEFINITIONS = [
                 maximum: 24,
                 description: "Hariç bitiş saati; 24, gün sonu demektir.",
               },
-              status: { type: "string", enum: ["free", "busy", "unplanned"] },
+              status: {
+                type: "string",
+                enum: ["free", "busy", "unplanned", "category"],
+              },
+              category: {
+                type: "string",
+                maxLength: 30,
+                description:
+                  "Yalnızca status=category ile: etkinlik kategorisinin adı, ör. Gym.",
+              },
             },
             required: ["day", "startHour", "endHour", "status"],
             additionalProperties: false,
@@ -102,6 +118,56 @@ const TOOL_DEFINITIONS = [
       readOnlyHint: false,
       destructiveHint: false,
       idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  {
+    name: "set_bedtimes",
+    description:
+      "Belirtilen günler için en geç yatağa girme saatini ayarla veya kaldır. Gece yarısından sonraki saat o günün gecesine aittir: Perşembe 00:30, Perşembe'yi Cuma'ya bağlayan gece demektir. Saat 18:00-05:59 arasında olmalı.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        days: {
+          type: "array",
+          minItems: 1,
+          maxItems: 7,
+          items: { type: "string", enum: DAYS },
+          description: "Yatma saati değişecek günler.",
+        },
+        time: {
+          type: ["string", "null"],
+          pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+          description: "SS:DD biçiminde saat, ör. 23:30 veya 00:30. Kaldırmak için null.",
+        },
+      },
+      required: ["days", "time"],
+      additionalProperties: false,
+    },
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  {
+    name: "add_activity_category",
+    description:
+      "Haftalık plana yeni bir etkinlik kategorisi (ör. Ders, Yürüyüş) ekle. En fazla 8 kategori olabilir.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", minLength: 1, maxLength: 30 },
+        color: { type: "string", enum: ACTIVITY_COLORS },
+      },
+      required: ["name", "color"],
+      additionalProperties: false,
+    },
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
       openWorldHint: false,
     },
   },
@@ -401,72 +467,16 @@ function supabaseHeaders(serviceRoleKey: string): HeadersInit {
   };
 }
 
-async function getWeeklySchedule(
-  supabaseUrl: string,
-  serviceRoleKey: string,
-  userId: string,
-): Promise<Schedule> {
-  const url = new URL("/rest/v1/user_data", supabaseUrl);
-  url.searchParams.set("select", "data");
-  url.searchParams.set("user_id", `eq.${userId}`);
-  url.searchParams.set("limit", "1");
-
-  const response = await fetch(url, {
-    headers: supabaseHeaders(serviceRoleKey),
-  });
-  if (!response.ok) {
-    throw new Error(`Supabase schedule read failed (${response.status}).`);
-  }
-
-  const rows = await response.json();
-  const schedule = Array.isArray(rows) ? rows[0]?.data?.schedule : undefined;
-  if (!isValidSchedule(schedule)) {
-    throw new Error(
-      "Haftalık plan henüz Supabase hesabında yok veya kayıtlı biçimi geçersiz. Önce uygulamada hesabına giriş yap.",
-    );
-  }
-  return schedule;
-}
-
-async function updateWeeklySchedule(
-  supabaseUrl: string,
-  serviceRoleKey: string,
-  userId: string,
-  changes: ReturnType<typeof parseScheduleChanges>,
-): Promise<Schedule> {
-  const url = new URL(
-    "/rest/v1/rpc/apply_mcp_weekly_schedule_changes",
-    supabaseUrl,
-  );
-  const response = await fetch(url, {
-    method: "POST",
-    headers: supabaseHeaders(serviceRoleKey),
-    body: JSON.stringify({
-      p_user_id: userId,
-      p_changes: changes.map(({ dayIndex, startHour, endHour, status }) => ({
-        dayIndex,
-        startHour,
-        endHour,
-        status,
-      })),
-    }),
-  });
-  if (!response.ok) {
-    throw new Error(`Supabase schedule update failed (${response.status}).`);
-  }
-
-  const result: unknown = await response.json();
-  if (!isValidSchedule(result)) {
-    throw new Error(
-      "Supabase güncelleme sonrası geçerli bir haftalık plan döndürmedi.",
-    );
-  }
-  return result;
-}
-
-
 type Config = ReturnType<typeof getConfiguration>;
-type Section = "notes" | "income" | "fixedExpenses" | "categories" | "expenses";
+type Section =
+  | "notes"
+  | "income"
+  | "fixedExpenses"
+  | "categories"
+  | "expenses"
+  | "schedule"
+  | "activityCategories"
+  | "bedtimes";
 
 async function readUserData(config: Config): Promise<Record<string, unknown>> {
   const url = new URL("/rest/v1/user_data", config.supabaseUrl);
@@ -778,6 +788,22 @@ function toolResult(text: string, isError = false) {
   };
 }
 
+function readStoredSchedule(data: Record<string, unknown>) {
+  if (!isValidSchedule(data.schedule)) {
+    throw new Error(
+      "Haftalık plan henüz Supabase hesabında yok veya kayıtlı biçimi geçersiz. Önce uygulamada hesabına giriş yap.",
+    );
+  }
+  return data.schedule;
+}
+
+function formatPlan(data: Record<string, unknown>): string {
+  const categories = readActivityCategories(data);
+  return `${formatSchedule(readStoredSchedule(data), categories, readBedtimes(data))}\n\n${
+    formatActivityCategories(categories)
+  }`;
+}
+
 async function callTool(
   name: unknown,
   args: unknown,
@@ -787,29 +813,54 @@ async function callTool(
     if (args && typeof args === "object" && Object.keys(args).length > 0) {
       return toolResult("Bu araç ek girdi kabul etmiyor.", true);
     }
-    const schedule = await getWeeklySchedule(
-      config.supabaseUrl,
-      config.serviceRoleKey,
-      config.userId,
-    );
-    return toolResult(
-      `Haftalık plan (tekrarlanan, 06:00-24:00):\n${formatSchedule(schedule)}`,
-    );
+    return toolResult(`Haftalık plan (tekrarlanan, 06:00-24:00):\n${
+      formatPlan(await readUserData(config))
+    }`);
   }
 
   if (name === "update_weekly_schedule") {
-    const changes = parseScheduleChanges(args);
-    const schedule = await updateWeeklySchedule(
-      config.supabaseUrl,
-      config.serviceRoleKey,
-      config.userId,
-      changes,
-    );
+    const text = await updateSection(config, "schedule", (data) => {
+      const schedule = readStoredSchedule(data);
+      const changes = parseScheduleChanges(args, readActivityCategories(data));
+      const updated = applyScheduleChanges(schedule, changes);
+      return {
+        value: updated,
+        result: formatPlan({ ...data, schedule: updated }),
+      };
+    });
     return toolResult(
-      `İstenen saat aralıkları kaydedildi. Güncel haftalık plan:\n${
-        formatSchedule(schedule)
-      }`,
+      `İstenen saat aralıkları kaydedildi. Güncel haftalık plan:\n${text}`,
     );
+  }
+
+  if (name === "set_bedtimes") {
+    const change = parseBedtimeChange(args);
+    const text = await updateSection(config, "bedtimes", (data) => {
+      const updated = applyBedtimeChange(readBedtimes(data), change);
+      return {
+        value: updated,
+        result: DAYS.map((day, index) => `${day}: ${updated[index] ?? "ayarlanmadı"}`)
+          .join("\n"),
+      };
+    });
+    return toolResult(`Yatma saatleri kaydedildi:\n${text}`);
+  }
+
+  if (name === "add_activity_category") {
+    const parsed = readArgs(args, ["name", "color"], ["name", "color"]);
+    if (typeof parsed.name !== "string" || typeof parsed.color !== "string") {
+      throw new TypeError("name ve color metin olmalı.");
+    }
+    const text = await updateSection(config, "activityCategories", (data) => {
+      const updated = addActivityCategory(
+        readActivityCategories(data),
+        parsed.name as string,
+        parsed.color as string,
+        `c-${crypto.randomUUID().slice(0, 8)}`,
+      );
+      return { value: updated, result: formatActivityCategories(updated) };
+    });
+    return toolResult(`Kategori eklendi. ${text}`);
   }
 
   if (typeof name === "string") {
