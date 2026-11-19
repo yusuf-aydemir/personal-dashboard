@@ -136,7 +136,8 @@ let authSession = null;
 let accountEmail = "";
 let loadingRemoteJobs = false;
 let loadingRemoteUserData = false;
-let lastSyncedSchedule;
+let lastSyncedData;
+let renderedNotes = "";
 let remoteUserDataSaveTimer;
 let remoteUserDataSaveQueue = Promise.resolve();
 let overviewDayOffset = 0;
@@ -225,8 +226,36 @@ function cloneSchedule(schedule) {
   return schedule.map((day) => [...day]);
 }
 
-function schedulesEqual(left, right) {
+function cloneData(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function sameValue(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function normalizeRemoteData(data, fallbackNotes = "") {
+  return {
+    ...data,
+    currency: CURRENCY_SYMBOLS[data.currency] ? data.currency : "TRY",
+    categories: data.categories ?? [],
+    notes: data.notes ?? fallbackNotes,
+    expenses: data.expenses.map((expense) => ({
+      ...expense,
+      categoryName: expense.categoryName || LEGACY_CATEGORY_NAMES[expense.category] || "Kaldırılmış kategori",
+    })),
+  };
+}
+
+// Older deployments only have save_user_data_with_schedule, which protects
+// just the weekly schedule. Use it until the new migration has been run.
+async function saveUserDataLegacy(client, data, base) {
+  const { data: savedData, error } = await client.rpc("save_user_data_with_schedule", {
+    p_data: data,
+    p_base_schedule: cloneSchedule(base.schedule ?? data.schedule),
+  });
+  if (error) throw error;
+  return savedData;
 }
 
 function scheduleRemoteUserDataSave() {
@@ -236,27 +265,39 @@ function scheduleRemoteUserDataSave() {
 
   remoteUserDataSaveTimer = setTimeout(() => {
     remoteUserDataSaveTimer = undefined;
-    const data = getSyncableState();
-    const scheduleAtSave = cloneSchedule(data.schedule);
-    const baseScheduleAtSave = cloneSchedule(lastSyncedSchedule ?? scheduleAtSave);
     remoteUserDataSaveQueue = remoteUserDataSaveQueue
       .then(async () => {
         if (authSession?.user?.id !== userId) return;
+        // Snapshot inside the queue so the base reflects the previous save.
+        const data = cloneData(getSyncableState());
+        const base = cloneData(lastSyncedData ?? data);
         const client = await getSupabaseClient();
-        const { data: savedData, error } = await client.rpc("save_user_data_with_schedule", {
+        let { data: savedData, error } = await client.rpc("save_user_data_merged", {
           p_data: data,
-          p_base_schedule: baseScheduleAtSave,
+          p_base: base,
         });
+        if (error?.code === "PGRST202") {
+          savedData = await saveUserDataLegacy(client, data, base);
+          error = null;
+        }
         if (error) throw error;
         if (!isValidState(savedData)) {
           throw new TypeError("Supabase returned invalid dashboard data after saving.");
         }
-        lastSyncedSchedule = cloneSchedule(savedData.schedule);
-        if (schedulesEqual(state.schedule, scheduleAtSave)) {
-          state.schedule = cloneSchedule(savedData.schedule);
-          renderSchedule();
-          renderOverviewClock();
+        // Take the cloud value for every section this device has not changed
+        // again while the save was in flight.
+        const normalized = normalizeRemoteData(savedData, state.notes);
+        const { jobs: _jobs, ...syncedSections } = normalized;
+        Object.entries(syncedSections).forEach(([key, value]) => {
+          if (sameValue(state[key], data[key])) state[key] = cloneData(value);
+        });
+        lastSyncedData = cloneData(syncedSections);
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, jobs: [] }));
+        } catch {
+          // The cloud copy is saved; the local cache is only a convenience.
         }
+        renderAll();
         showNotice("Değişiklikler Supabase hesabınla eşitlendi.");
       })
       .catch((error) => {
@@ -283,7 +324,7 @@ async function loadRemoteUserData(client) {
         updated_at: new Date().toISOString(),
       }, { onConflict: "user_id" });
       if (saveError) throw saveError;
-      lastSyncedSchedule = cloneSchedule(state.schedule);
+      lastSyncedData = cloneData(getSyncableState());
       showNotice("Bu cihazdaki veriler Supabase hesabına kaydedildi.");
       return;
     }
@@ -294,17 +335,10 @@ async function loadRemoteUserData(client) {
 
     state = {
       ...state,
-      ...remoteRecord.data,
-      currency: CURRENCY_SYMBOLS[remoteRecord.data.currency] ? remoteRecord.data.currency : "TRY",
-      categories: remoteRecord.data.categories ?? [],
-      notes: remoteRecord.data.notes ?? state.notes,
+      ...normalizeRemoteData(remoteRecord.data, state.notes),
       jobs: state.jobs,
-      expenses: remoteRecord.data.expenses.map((expense) => ({
-        ...expense,
-        categoryName: expense.categoryName || LEGACY_CATEGORY_NAMES[expense.category] || "Kaldırılmış kategori",
-      })),
     };
-    lastSyncedSchedule = cloneSchedule(state.schedule);
+    lastSyncedData = cloneData(getSyncableState());
     renderAll();
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, jobs: [] }));
@@ -366,7 +400,7 @@ async function initializeCloudJobs() {
         void loadAccountData(client);
       } else if (event === "SIGNED_OUT" && hadSession) {
         clearTimeout(remoteUserDataSaveTimer);
-        lastSyncedSchedule = undefined;
+        lastSyncedData = undefined;
         document.querySelector("#account-code").dataset.open = "false";
         state.jobs = [];
         saveState("Hesaptan çıkış yapıldı.");
@@ -569,7 +603,11 @@ function renderOverviewClock() {
 }
 
 function renderNotes() {
-  document.querySelector("#overview-notes").value = state.notes;
+  const textarea = document.querySelector("#overview-notes");
+  // Keep text the user is still typing; only refresh an untouched textarea.
+  if (textarea.value !== renderedNotes) return;
+  textarea.value = state.notes;
+  renderedNotes = state.notes;
 }
 
 function renderFixedExpenses() {
@@ -946,6 +984,7 @@ document.querySelector("#overview-today").addEventListener("click", () => {
 document.querySelector("#overview-notes-form").addEventListener("submit", (event) => {
   event.preventDefault();
   state.notes = event.currentTarget.elements.notes.value;
+  renderedNotes = state.notes;
   saveState("Notların kaydedildi.");
 });
 

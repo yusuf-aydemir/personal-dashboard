@@ -1,4 +1,4 @@
-const CACHE_NAME = "personal-area-v20";
+const CACHE_NAME = "personal-area-v21";
 const APP_FILES = [
   "./",
   "./index.html",
